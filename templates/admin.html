@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+{% block title %}Yönetici Paneli{% endblock %}
+{% block content %}
+<section class="content-card">
+    <h2>Yönetici Paneli</h2>
+    <div class="admin-stats">
+        <p><strong>Toplam Katılımcı:</strong> {{ user_count }}</p>
+        <p><strong>Toplam Vaka Sayısı:</strong> {{ case_count }}</p>
+        <p><strong>Toplam Yanıt Sayısı:</strong> {{ response_count }}</p>
+    </div>
+</section>
+
+<div class="upload-container">
+    <!-- CSV Yükleme Kartı -->
+    <section class="content-card">
+        <h3>Toplu Vaka Yükleme (.csv)</h3>
+        <p class="subtitle">Basit vakalar için CSV kullanın.</p>
+        <form action="{{ url_for('upload_csv') }}" method="post" enctype="multipart/form-data" class="upload-form">
+            <input type="file" name="file" accept=".csv" required>
+            <button type="submit">Yükle</button>
+        </form>
+        <div class="csv-format">
+            <p><strong>Gereken CSV Formatı:</strong></p>
+            <pre><code>vaka_baslik,altin_standart_tani,altin_standart_tetkik,altin_standart_tedavi,altin_standart_doz,chatgpt_tani,gemini_tani</code></pre>
+        </div>
+    </section>
+
+    <!-- YENİ: JSON Yükleme Kartı -->
+    <section class="content-card">
+        <h3>Toplu Vaka Yükleme (.json)</h3>
+        <p class="subtitle">Detaylı vakalar için JSON kullanın.</p>
+        <form action="{{ url_for('upload_json') }}" method="post" enctype="multipart/form-data">
+            <div class="form-grup">
+                <label for="json_text">JSON Metni Yapıştırın:</label>
+                <textarea name="json_text" id="json_text" rows="8" placeholder='[ { "title": "Vaka Adı", ... } ]'></textarea>
+            </div>
+            <div class="form-grup upload-form">
+                <label for="json_file" style="flex-shrink: 0; margin-right: 1rem;">VEYA Dosya Yükleyin:</label>
+                <input type="file" name="json_file" id="json_file" accept=".json">
+            </div>
+            <button type="submit">JSON ile Yükle</button>
+        </form>
+         <div class="csv-format">
+            <p><strong>Gereken JSON Formatı:</strong></p>
+            <pre><code>[
+  {
+    "title": "Vaka 3: Ateşli Çocuk",
+    "anamnesis": {"Şikayet": "3 gündür süren ateş"},
+    "physical_exam": {"Bulgu": "Boğazda hiperemi"},
+    "gold_standard_response": {
+      "tanı": "Tonsillit",
+      "tetkik": "Strep A testi",
+      "tedavi_plani": "Antibiyoterapi",
+      "dozaj": "Penisilin V"
+    },
+    "chatgpt_response": {"tanı": "Akut Farenjit"},
+    "gemini_response": {"tanı": "Viral Farenjit"},
+    "deepseek_response": {"tanı": "Tonsillofarenjit"}
+  }
+]</code></pre>
+        </div>
+    </section>
+</div>
+
+<section class="content-card">
+    <h3>Veri Dışa Aktarma</h3>
+    <div class="actions">
+        <a href="{{ url_for('export_csv') }}" class="button">Tüm Yanıt Veri Setini İndir (.csv)</a>
+    </div>
+</section>
+{% endblock %}

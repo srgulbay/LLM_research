@@ -1,0 +1,248 @@
+/* --- Profesyonel Tasarım Sistemi --- */
+
+/* 1. Renk Paleti ve Değişkenler */
+:root {
+    --primary-color: #3B82F6; /* Güven veren Mavi */
+    --primary-hover-color: #2563EB;
+    --secondary-color: #1F2937; /* Koyu Metin Rengi */
+    --light-text-color: #6B7280; /* İkincil Metin */
+    --background-color: #F9FAFB; /* Çok Açık Gri Arkaplan */
+    --card-background-color: #FFFFFF;
+    --border-color: #E5E7EB;
+    --success-color: #10B981;
+    --danger-color: #EF4444;
+    --info-color: #F59E0B;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --border-radius: 0.75rem; /* 12px */
+}
+
+/* 2. Global Stiller ve Sıfırlama */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+body {
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--secondary-color);
+    line-height: 1.6;
+    margin: 0;
+}
+.container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* 3. Navigasyon Çubuğu */
+.navbar {
+    background-color: var(--card-background-color);
+    box-shadow: var(--shadow);
+    padding: 1rem 0;
+    margin-bottom: 2.5rem;
+}
+.nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+    text-decoration: none;
+}
+.nav-links a {
+    color: var(--light-text-color);
+    text-decoration: none;
+    font-weight: 600;
+    margin-left: 1.5rem;
+    transition: color 0.2s ease-in-out;
+}
+.nav-links a:hover {
+    color: var(--primary-color);
+}
+
+/* 4. Ana İçerik ve Kartlar */
+.main-container {
+    padding-bottom: 2.5rem;
+}
+.content-card {
+    background-color: var(--card-background-color);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+    margin-bottom: 2rem;
+}
+.content-card h2 {
+    font-size: 1.75rem;
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+.content-card .subtitle {
+    font-size: 1rem;
+    color: var(--light-text-color);
+    margin-top: 0;
+    margin-bottom: 2rem;
+}
+
+/* 5. Form Elemanları */
+.form-container { max-width: 500px; margin: 2rem auto; }
+.form-grup { margin-bottom: 1.5rem; }
+.form-grup label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+input[type="email"], input[type="number"], select, textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem; /* 8px */
+    border: 1px solid var(--border-color);
+    background-color: #F9FAFB;
+    font-family: var(--font-family);
+    font-size: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+button, .button {
+    display: inline-block; width: 100%; padding: 0.875rem 1.5rem; font-size: 1rem; font-weight: 600; text-align: center; color: #fff;
+    background-color: var(--primary-color); border: none; border-radius: 0.5rem; cursor: pointer; text-decoration: none;
+    transition: background-color 0.2s, transform 0.1s;
+}
+button:hover, .button:hover { background-color: var(--primary-hover-color); transform: translateY(-1px); }
+.form-alt-text { text-align: center; margin-top: 1.5rem; color: var(--light-text-color); }
+.form-alt-text a { color: var(--primary-color); font-weight: 600; text-decoration: none; }
+
+/* 6. Tablolar */
+.tablo-container { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+thead th { background-color: #F9FAFB; font-weight: 600; color: var(--light-text-color); font-size: 0.875rem; text-transform: uppercase; }
+tbody tr:hover { background-color: #eff6ff; }
+
+/* 7. Özel Bileşenler */
+.alert {
+    padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; font-weight: 600;
+}
+.alert-success { background-color: #D1FAE5; color: #065F46; }
+.alert-danger { background-color: #FEE2E2; color: #991B1B; }
+.alert-info { background-color: #FEF3C7; color: #92400E; }
+.score-card {
+    background: linear-gradient(45deg, var(--primary-color), #60A5FA);
+    color: white;
+    padding: 1.5rem 2rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 2rem;
+    text-align: center;
+}
+.score-card h3 { margin: 0 0 0.5rem 0; font-size: 1.75rem; }
+.score-card .reasoning { opacity: 0.9; font-size: 0.9rem; margin: 0; }
+.button-sm {
+    padding: 0.25rem 0.75rem; background-color: transparent; color: var(--primary-color); border: 1px solid var(--primary-color);
+    border-radius: 99px; text-decoration: none; font-size: 0.875rem; font-weight: 600;
+}
+.button-sm:hover { background-color: var(--primary-color); color: white; }
+.case-list a {
+    display: flex; justify-content: space-between; align-items: center; padding: 1.25rem;
+    border: 1px solid var(--border-color); border-radius: 0.5rem; text-decoration: none;
+    color: var(--secondary-color); font-weight: 600; margin-bottom: 1rem; transition: all 0.2s ease;
+}
+.case-list a:hover { border-color: var(--primary-color); background-color: #F0F9FF; transform: scale(1.02); }
+
+/* Ayrıntılı Skor Dökümü Stilleri */
+.score-breakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: -1rem;
+    margin-bottom: 2rem;
+}
+.score-item {
+    background-color: var(--background-color);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+.score-item h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--secondary-color);
+}
+.score-item .score-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin: 0 0 0.75rem 0;
+}
+.score-item .score-reason {
+    font-size: 0.875rem;
+    color: var(--light-text-color);
+    margin: 0;
+    min-height: 40px;
+}
+@media (max-width: 600px) {
+    .score-breakdown {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dörtlü Skor Dökümü İçin Mobil Uyum */
+@media (max-width: 960px) {
+    .score-breakdown {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Form ve Admin Paneli Ek Stilleri */
+.form-divider {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 2.5rem 0;
+}
+.upload-form {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+.upload-form input[type="file"] {
+    flex-grow: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+}
+.upload-form button {
+    width: auto;
+    flex-shrink: 0;
+}
+.csv-format {
+    background-color: var(--background-color);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+.csv-format p { margin: 0 0 0.5rem 0; }
+.csv-format pre {
+    background-color: #e5e7eb;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Admin Panelindeki Yükleme Bölümü */
+.upload-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 960px) {
+    .upload-container {
+        grid-template-columns: 1fr;
+    }
+}

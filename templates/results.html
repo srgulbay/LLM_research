@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+{% block title %}Vaka Sonuçları{% endblock %}
+{% block content %}
+<section class="content-card">
+    <h2>Sonuçlar: {{ user_response.case.title }}</h2>
+    
+    <div class="score-card">
+        <h3>Final Skorunuz: {{ user_response.final_score }} / 100</h3>
+        <p class="reasoning">Bu vaka için harcanan süre: <strong>{{ user_response.duration_seconds }} saniye</strong></p>
+    </div>
+
+    <!-- Skor Dökümü -->
+    <div class="score-breakdown">
+        <div class="score-item"><h4>Tanı</h4><p class="score-value">{{ user_response.diagnosis_score }}</p><p class="score-reason">{{ user_response.diagnosis_reasoning }}</p></div>
+        <div class="score-item"><h4>Tetkik</h4><p class="score-value">{{ user_response.investigation_score }}</p><p class="score-reason">{{ user_response.investigation_reasoning }}</p></div>
+        <div class="score-item"><h4>Tedavi</h4><p class="score-value">{{ user_response.treatment_score }}</p><p class="score-reason">{{ user_response.treatment_reasoning }}</p></div>
+        <div class="score-item"><h4>Dozaj</h4><p class="score-value">{{ user_response.dosage_score }}</p><p class="score-reason">{{ user_response.dosage_reasoning }}</p></div>
+    </div>
+</section>
+
+<!-- Kafa Kafaya Karşılaştırma Tablosu -->
+<section class="content-card">
+    <h2>Kafa Kafaya Karşılaştırma</h2>
+    <p class="subtitle">Bu tablo, sizin yanıtınızı doğrudan üç büyük dil modelinin aynı vakaya verdiği yanıtlarla karşılaştırır.</p>
+    <div class="tablo-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Kriter</th>
+                    <th class="user-response-header">Sizin Yanıtınız</th>
+                    <th>ChatGPT-5</th>
+                    <th>Gemini-PRO</th>
+                    <th>Deepseek-DT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {# HATA DÜZELTMESİ: Veritabanından gelen veriyi JSON'a uygun hale getir #}
+                {% set chatgpt_str = user_response.case.chatgpt_response | replace("'", '"') | replace("None", '"N/A"') %}
+                {% set gemini_str = user_response.case.gemini_response | replace("'", '"') | replace("None", '"N/A"') %}
+                {% set deepseek_str = user_response.case.deepseek_response | replace("'", '"') | replace("None", '"N/A"') %}
+
+                {% set chatgpt = parse_json(chatgpt_str) %}
+                {% set gemini = parse_json(gemini_str) %}
+                {% set deepseek = parse_json(deepseek_str) %}
+                <tr>
+                    <td><strong>Tanı</strong></td>
+                    <td>{{ user_response.user_diagnosis }}</td>
+                    <td>{{ chatgpt.get('tanı', 'N/A') }}</td>
+                    <td>{{ gemini.get('tanı', 'N/A') }}</td>
+                    <td>{{ deepseek.get('tanı', 'N/A') }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Tetkik</strong></td>
+                    <td>{{ user_response.user_tests }}</td>
+                    <td>{{ chatgpt.get('tetkik', 'N/A') }}</td>
+                    <td>{{ gemini.get('tetkik', 'N/A') }}</td>
+                    <td>{{ deepseek.get('tetkik', 'N/A') }}</td>
+                </tr>
+                 <tr>
+                    <td><strong>Tedavi Planı</strong></td>
+                    <td>{{ user_response.user_drug_class }} - {{ user_response.user_active_ingredient }}</td>
+                    <td>{{ chatgpt.get('tedavi_plani', 'N/A') }}</td>
+                    <td>{{ gemini.get('tedavi_plani', 'N/A') }}</td>
+                    <td>{{ deepseek.get('tedavi_plani', 'N/A') }}</td>
+                </tr>
+                 <tr>
+                    <td><strong>Dozaj / Notlar</strong></td>
+                    <td>{{ user_response.user_dosage_notes }}</td>
+                    <td>{{ chatgpt.get('dozaj', 'N/A') }}</td>
+                    <td>{{ gemini.get('dozaj', 'N/A') }}</td>
+                    <td>{{ deepseek.get('dozaj', 'N/A') }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

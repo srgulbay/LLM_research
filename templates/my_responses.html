@@ -1,0 +1,5 @@
+{% extends "layout.html" %}
+{% block title %}Yanıtlarım{% endblock %}
+{% block content %}
+<section class="content-card"><h2>Verdiğiniz Yanıtlar</h2>{% if responses %}<div class="tablo-container"><table><thead><tr><th>Vaka</th><th>Tanınız</th><th>Skorunuz</th><th>Detay</th></tr></thead><tbody>{% for resp in responses|sort(attribute='id', reverse=True) %}<tr><td>{{ resp.case.title }}</td><td>{{ resp.user_diagnosis }}</td><td><strong>{{ resp.score }}</strong></td><td><a href="{{ url_for('results', response_id=resp.id) }}" class="button-sm">Gör</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<p>Henüz bir yanıt vermediniz.</p>{% endif %}</section>
+{% endblock %}

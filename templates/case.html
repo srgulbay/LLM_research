@@ -1,0 +1,80 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ case.title }}{% endblock %}
+
+{% block content %}
+<!-- Vaka Detayları (EKSİK OLAN VE DÜZELTİLEN BÖLÜM) -->
+<section class="content-card vaka-karti">
+    <h2>{{ case.title }}</h2>
+    
+    <h3 style="margin-top: 1.5rem;">Anamnez</h3>
+    <ul>
+        {% for key, value in parse_json(case.anamnesis).items() %}
+        <li><strong>{{ key }}:</strong> {{ value }}</li>
+        {% endfor %}
+    </ul>
+
+    <h3 style="margin-top: 1.5rem;">Fizik Muayene</h3>
+    <ul>
+        {% for key, value in parse_json(case.physical_exam).items() %}
+        <li><strong>{{ key }}:</strong> {{ value }}</li>
+        {% endfor %}
+    </ul>
+</section>
+
+<!-- Yapılandırılmış Yanıt Formu -->
+<section class="content-card form-karti">
+    <h2>Sizin Değerlendirmeniz</h2>
+    <form method="POST" id="case-form">
+        <input type="hidden" name="duration_seconds" id="duration_seconds">
+        
+        <div class="form-grup">
+            <label for="user_diagnosis">1. En Olası Tanınız:</label>
+            <input type="text" id="user_diagnosis" name="user_diagnosis" required placeholder="Örn: Akut Otitis Media">
+        </div>
+        <div class="form-grup">
+            <label for="user_differential">2. Ayırıcı Tanılarınız:</label>
+            <textarea id="user_differential" name="user_differential" rows="2" required placeholder="Aklınıza gelen diğer olasılıkları virgülle ayırarak yazın"></textarea>
+        </div>
+        <div class="form-grup">
+            <label for="user_tests">3. İsteyeceğiniz Tetkikler:</label>
+            <textarea id="user_tests" name="user_tests" rows="2" required placeholder="Gerekmiyorsa 'gerekmez' yazın"></textarea>
+        </div>
+
+        <hr class="form-divider">
+        
+        <h4>4. Tedavi Planı</h4>
+        <div class="form-grup">
+            <label for="user_drug_class">a. İlaç Grubu:</label>
+            <select id="user_drug_class" name="user_drug_class">
+                <option value="">Seçiniz...</option>
+                <option value="Antibiyotik">Antibiyotik</option>
+                <option value="Antiviral">Antiviral</option>
+                <option value="Analjezik/Antipiretik">Analjezik / Antipiretik</option>
+                <option value="Antihistaminik">Antihistaminik</option>
+                <option value="Kortikosteroid">Kortikosteroid</option>
+                <option value="İlaç Gerekmez">İlaç Gerekmez / Destek Tedavisi</option>
+                <option value="Diğer">Diğer</option>
+            </select>
+        </div>
+        <div class="form-grup">
+            <label for="user_active_ingredient">b. Etken Madde:</label>
+            <input type="text" id="user_active_ingredient" name="user_active_ingredient" placeholder="Örn: Amoksisilin, İbuprofen">
+        </div>
+        <div class="form-grup">
+            <label for="user_dosage_notes">c. Dozaj ve Diğer Notlar:</label>
+            <textarea id="user_dosage_notes" name="user_dosage_notes" rows="2" placeholder="Örn: 90 mg/kg/gün, 2 dozda, 7 gün"></textarea>
+        </div>
+
+        <button type="submit">Yanıtları Gönder ve Değerlendir</button>
+    </form>
+</section>
+
+<script>
+    const startTime = performance.now();
+    document.getElementById('case-form').addEventListener('submit', function() {
+        const duration = Math.round((performance.now() - startTime) / 1000);
+        document.getElementById('duration_seconds').value = duration;
+    });
+</script>
+{% endblock %}

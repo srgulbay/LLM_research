@@ -1,0 +1,17 @@
+{
+  "name": "my-typescript-project",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "settings": {
+    "typescript.tsdk": "node_modules/typescript/lib"
+  },
+  "extensions": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-azuretools.vscode-docker"
+  ],
+  "postCreateCommand": "npm install",
+  "remoteUser": "vscode"
+}

@@ -6,31 +6,40 @@
 <section class="content-card">
     <h2>Sonuçlar: {{ user_response.case.title }}</h2>
     
-    <div class="score-card">
-        <h3>Final Skorunuz: {{ "%.0f"|format(user_response.final_score) }} / 100</h3>
-        <p class="reasoning">Bu vaka için harcanan süre: <strong>{{ user_response.duration_seconds }} saniye</strong></p>
+    <div class="score-card" id="score-card-dynamic">
+        {% if user_response.final_score == 0.0 and not user_response.job_id %}
+            <h3 id="status-message">Puanlama Bekleniyor...</h3>
+            <p class="reasoning">Sayfa yüklendiğinde puanlama henüz tamamlanmamış. Lütfen bekleyin.</p>
+        {% else %}
+            <h3 id="status-message" style="display: none;">Puanlama devam ediyor...</h3>
+        {% endif %}
+        
+        <div id="final-score-container" {% if user_response.final_score == 0.0 %}style="display: none;"{% endif %}>
+            <h3>Final Skorunuz: <span id="final-score">{{ "%.0f"|format(user_response.final_score) }}</span> / 100</h3>
+            <p class="reasoning">Bu vaka için harcanan süre: <strong>{{ user_response.duration_seconds }} saniye</strong></p>
+        </div>
     </div>
 
     <div class="score-breakdown">
         <div class="score-item">
             <h4>Tanı Yeterliliği</h4>
-            <p class="score-value">{{ "%.0f"|format(user_response.diagnosis_score) }}</p>
-            <p class="score-reason">{{ user_response.diagnosis_reasoning }}</p>
+            <p class="score-value" id="diag-score">{{ "%.0f"|format(user_response.diagnosis_score) }}</p>
+            <p class="score-reason" id="diag-reason">{{ user_response.diagnosis_reasoning }}</p>
         </div>
         <div class="score-item">
             <h4>Tetkik Uygunluğu</h4>
-            <p class="score-value">{{ "%.0f"|format(user_response.investigation_score) }}</p>
-            <p class="score-reason">{{ user_response.investigation_reasoning }}</p>
+            <p class="score-value" id="invest-score">{{ "%.0f"|format(user_response.investigation_score) }}</p>
+            <p class="score-reason" id="invest-reason">{{ user_response.investigation_reasoning }}</p>
         </div>
         <div class="score-item">
             <h4>Tedavi Planı</h4>
-            <p class="score-value">{{ "%.0f"|format(user_response.treatment_score) }}</p>
-            <p class="score-reason">{{ user_response.treatment_reasoning }}</p>
+            <p class="score-value" id="treat-score">{{ "%.0f"|format(user_response.treatment_score) }}</p>
+            <p class="score-reason" id="treat-reason">{{ user_response.treatment_reasoning }}</p>
         </div>
         <div class="score-item">
             <h4>Dozaj ve Pratik</h4>
-            <p class="score-value">{{ "%.0f"|format(user_response.dosage_score) }}</p>
-            <p class="score-reason">{{ user_response.dosage_reasoning }}</p>
+            <p class="score-value" id="dosage-score">{{ "%.0f"|format(user_response.dosage_score) }}</p>
+            <p class="score-reason" id="dosage-reason">{{ user_response.dosage_reasoning }}</p>
         </div>
     </div>
 </section>
@@ -50,7 +59,6 @@
                 </tr>
             </thead>
             <tbody>
-                {# Veritabanından gelen AI yanıtlarını JSON olarak parse et #}
                 {% set chatgpt = parse_json(user_response.case.chatgpt_response) %}
                 {% set gemini = parse_json(user_response.case.gemini_response) %}
                 {% set deepseek = parse_json(user_response.case.deepseek_response) %}
@@ -89,4 +97,76 @@
         <a href="{{ url_for('index') }}" class="button" style="width: auto; margin-top: 1.5rem;">Ana Sayfaya Dön</a>
     </div>
 </section>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Gerekli DOM elementlerini seç
+        const statusMessageEl = document.getElementById('status-message');
+        const finalScoreContainerEl = document.getElementById('final-score-container');
+        const finalScoreEl = document.getElementById('final-score');
+        const diagScoreEl = document.getElementById('diag-score');
+        const investScoreEl = document.getElementById('invest-score');
+        const treatScoreEl = document.getElementById('treat-score');
+        const dosageScoreEl = document.getElementById('dosage-score');
+        const diagReasonEl = document.getElementById('diag-reason');
+        const investReasonEl = document.getElementById('invest-reason');
+        const treatReasonEl = document.getElementById('treat-reason');
+        const dosageReasonEl = document.getElementById('dosage-reason');
+
+        // Yanıt ID'sini ve durum URL'sini al
+        const responseId = {{ user_response.id }};
+        const statusUrl = `/results/${responseId}/status`;
+
+        // Puanlama tamamlanmışsa (sayfa yenilendiğinde) hiçbir şey yapma
+        // Sadece puanlama sıfırsa ve bir job_id varsa sorgulamayı başlat
+        if ({{ user_response.final_score == 0.0 and user_response.job_id|tojson }}) {
+            pollStatus();
+        }
+
+        function pollStatus() {
+            fetch(statusUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'processing') {
+                        // Durum: İşleniyor. Mesajı güncelle ve 2sn sonra tekrar sor.
+                        statusMessageEl.innerText = data.message;
+                        statusMessageEl.style.display = 'block';
+                        finalScoreContainerEl.style.display = 'none';
+                        setTimeout(pollStatus, 2000);
+                    } else if (data.status === 'finished') {
+                        // Durum: Tamamlandı. Tüm alanları güncelle ve sorgulamayı durdur.
+                        statusMessageEl.style.display = 'none';
+                        finalScoreContainerEl.style.display = 'block';
+
+                        finalScoreEl.innerText = data.final_score.toFixed(0);
+                        diagScoreEl.innerText = data.diagnosis_score.toFixed(0);
+                        investScoreEl.innerText = data.investigation_score.toFixed(0);
+                        treatScoreEl.innerText = data.treatment_score.toFixed(0);
+                        dosageScoreEl.innerText = data.dosage_score.toFixed(0);
+
+                        diagReasonEl.innerText = data.reasoning.diagnosis;
+                        investReasonEl.innerText = data.reasoning.tests;
+                        treatReasonEl.innerText = data.reasoning.treatment;
+                        dosageReasonEl.innerText = data.reasoning.dosage;
+                    } else if (data.status === 'failed') {
+                        // Durum: Başarısız. Hata mesajını göster ve dur.
+                        statusMessageEl.innerText = data.message;
+                        statusMessageEl.style.color = '#EF4444'; // 'danger-color'
+                        statusMessageEl.style.display = 'block';
+                        finalScoreContainerEl.style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    console.error('Polling error:', err);
+                    statusMessageEl.innerText = 'Puanlama durumu alınırken bir hata oluştu.';
+                    statusMessageEl.style.color = '#EF4444';
+                });
+        }
+    });
+</script>
 {% endblock %}

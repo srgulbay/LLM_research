@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+
+{% block title %}Yönetici Girişi{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <section class="content-card">
+        <h2>Yönetici Paneli Girişi</h2>
+        <p class="subtitle">Lütfen yönetici e-postanızı ve şifrenizi girin.</p>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" style="margin-bottom: 1.5rem;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <form method="POST" action="{{ url_for('admin_login') }}">
+            <div class="form-grup">
+                <label for="email">E-posta Adresiniz</label>
+                <input type="email" id="email" name="email" required placeholder="ornek@yonetici.com">
+            </div>
+            <div class="form-grup">
+                <label for="password">Şifreniz</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Giriş Yap</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

@@ -1,7 +1,7 @@
 import os
 import json
 from redis import Redis
-from rq import Queue
+from rq import Queue, get_current_job
 from app import app, db, get_semantic_score, UserResponse, ReferenceAnswer
 
 # app.py'de tanımlanan Redis bağlantısını ve kuyruğu al
@@ -14,6 +14,10 @@ else:
     conn = Redis.from_url(redis_url)
 
 def score_and_store_response(response_id):
+    job = get_current_job(conn)
+    if not job: 
+        app.logger.error("Job context bulunamadı.")
+        return
     """
     Bir kullanıcı yanıtını (UserResponse) Gemini API kullanarak puanlar
     ve sonuçları veritabanına kaydeder. Bu fonksiyon RQ worker'ı
@@ -42,12 +46,16 @@ def score_and_store_response(response_id):
 
             # 2. Puanlama Aşamaları
             
+            job.meta['status'] = '1/4: Tanı puanlanıyor...'
+            job.save_meta()
             # Tanı
             diag_score, diag_raw = get_semantic_score(ur.user_diagnosis, gold_content.get('tanı', ''), 'Tanı')
             ur.diagnosis_score = float(diag_score)
             reasons['diagnosis'] = diag_raw.get('reason')
             llm_raw['diagnosis'] = diag_raw.get('raw')
 
+            job.meta['status'] = '2/4: Tetkikler puanlanıyor...'
+            job.save_meta()
             # Tetkik (Tanı skoruna koşullu)
             if diag_score >= 70:
                 tests_score, tests_raw = get_semantic_score(ur.user_tests, gold_content.get('tetkik', ''), 'Tetkik')
@@ -59,6 +67,8 @@ def score_and_store_response(response_id):
                 reasons['tests'] = "Tanı yetersiz/hatalı olduğu için tetkik puanlanmadı."
                 llm_raw['tests'] = None
 
+            job.meta['status'] = '3/4: Tedavi planı puanlanıyor...'
+            job.save_meta()
             # Tedavi (İlaç seçimi)
             treat_text = f"İlaç Grubu: {ur.user_drug_class}, Etken Madde: {ur.user_active_ingredient}"
             treat_score, treat_raw = get_semantic_score(treat_text, gold_content.get('tedavi_plani', ''), 'Tedavi Planı')
@@ -66,6 +76,8 @@ def score_and_store_response(response_id):
             reasons['treatment'] = treat_raw.get('reason')
             llm_raw['treatment'] = treat_raw.get('raw')
 
+            job.meta['status'] = '4/4: Dozaj puanlanıyor...'
+            job.save_meta()
             # Dozaj (Tedavi skoruna koşullu)
             if treat_score >= 70:
                 dosage_score, dosage_raw = get_semantic_score(ur.user_dosage_notes, gold_content.get('dozaj', ''), 'Dozaj')
@@ -87,6 +99,8 @@ def score_and_store_response(response_id):
             db.session.add(ur)
             db.session.commit()
             
+            job.meta['status'] = 'Tamamlandı'
+            job.save_meta()
             app.logger.info("Puanlama tamamlandı: Response ID %s", response_id)
 
         except Exception as e:

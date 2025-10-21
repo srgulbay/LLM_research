@@ -11,8 +11,7 @@
         {% for case in cases %}
             <a href="{{ url_for('case_detail', case_id=case.id) }}">
                 <span>{{ case.title }}</span>
-                <span>&#8594;</span> <!-- Sağ ok ikonu -->
-            </a>
+                <span>&#8594;</span> </a>
         {% else %}
             {# Eğer veritabanında hiç vaka yoksa bu mesajı göster #}
             <p>Veritabanında henüz vaka bulunmuyor. Lütfen yönetici panelinden vaka yükleyin.</p>
@@ -20,4 +19,3 @@
     </div>
 </section>
 {% endblock %}
-

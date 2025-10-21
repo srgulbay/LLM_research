@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <!-- Üst Navigasyon Çubuğu -->
     <nav class="navbar">
         <div class="container nav-container">
             <a href="{{ url_for('index') }}" class="nav-brand">LLM_Research</a>
@@ -30,7 +29,6 @@
         </div>
     </nav>
 
-    <!-- Ana İçerik Alanı -->
     <div class="container main-container">
         {# Flask'in flash mesajlarını (örn: "başarıyla giriş yaptınız") göstermek için #}
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -48,4 +46,3 @@
     </div>
 </body>
 </html>
-

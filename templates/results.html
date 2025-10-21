@@ -6,38 +6,35 @@
 <section class="content-card">
     <h2>Sonuçlar: {{ user_response.case.title }}</h2>
     
-    <!-- Genel Skor ve Süre Kartı -->
     <div class="score-card">
-        <h3>Final Skorunuz: {{ user_response.final_score }} / 100</h3>
+        <h3>Final Skorunuz: {{ "%.0f"|format(user_response.final_score) }} / 100</h3>
         <p class="reasoning">Bu vaka için harcanan süre: <strong>{{ user_response.duration_seconds }} saniye</strong></p>
     </div>
 
-    <!-- Dört Aşamalı Ayrıntılı Skor Dökümü -->
     <div class="score-breakdown">
         <div class="score-item">
             <h4>Tanı Yeterliliği</h4>
-            <p class="score-value">{{ user_response.diagnosis_score }}</p>
+            <p class="score-value">{{ "%.0f"|format(user_response.diagnosis_score) }}</p>
             <p class="score-reason">{{ user_response.diagnosis_reasoning }}</p>
         </div>
         <div class="score-item">
             <h4>Tetkik Uygunluğu</h4>
-            <p class="score-value">{{ user_response.investigation_score }}</p>
+            <p class="score-value">{{ "%.0f"|format(user_response.investigation_score) }}</p>
             <p class="score-reason">{{ user_response.investigation_reasoning }}</p>
         </div>
         <div class="score-item">
             <h4>Tedavi Planı</h4>
-            <p class="score-value">{{ user_response.treatment_score }}</p>
+            <p class="score-value">{{ "%.0f"|format(user_response.treatment_score) }}</p>
             <p class="score-reason">{{ user_response.treatment_reasoning }}</p>
         </div>
         <div class="score-item">
             <h4>Dozaj ve Pratik</h4>
-            <p class="score-value">{{ user_response.dosage_score }}</p>
+            <p class="score-value">{{ "%.0f"|format(user_response.dosage_score) }}</p>
             <p class="score-reason">{{ user_response.dosage_reasoning }}</p>
         </div>
     </div>
 </section>
 
-<!-- Kafa Kafaya Karşılaştırma Tablosu -->
 <section class="content-card">
     <h2>Kafa Kafaya Karşılaştırma</h2>
     <p class="subtitle">Bu tablo, sizin yanıtınızı doğrudan üç büyük dil modelinin aynı vakaya verdiği yanıtlarla karşılaştırır.</p>
@@ -47,9 +44,9 @@
                 <tr>
                     <th>Kriter</th>
                     <th class="user-response-header">Sizin Yanıtınız</th>
-                    <th>ChatGPT-5</th>
-                    <th>Gemini-PRO</th>
-                    <th>Deepseek-DT</th>
+                    <th>ChatGPT</th>
+                    <th>Gemini</th>
+                    <th>Deepseek</th>
                 </tr>
             </thead>
             <tbody>
@@ -93,4 +90,3 @@
     </div>
 </section>
 {% endblock %}
-

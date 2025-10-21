@@ -1,6 +1,9 @@
 Flask
 Flask-SQLAlchemy
-gunicorn
 Flask-Login
 google-generativeai
 python-dotenv
+gunicorn
+psycopg2-binary
+redis
+rq

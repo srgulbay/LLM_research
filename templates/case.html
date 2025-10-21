@@ -3,7 +3,6 @@
 {% block title %}{{ case.title }}{% endblock %}
 
 {% block content %}
-<!-- Vaka Detayları Kartı -->
 <section class="content-card vaka-karti">
     <h2>{{ case.title }}</h2>
     
@@ -24,10 +23,8 @@
     </ul>
 </section>
 
-<!-- Kullanıcı Yanıt Formu Kartı -->
 <section class="content-card form-karti">
     <form method="POST" id="case-form">
-        <!-- Karar verme süresini saklamak için gizli (hidden) input -->
         <input type="hidden" name="duration_seconds" id="duration_seconds">
         
         <div class="form-grup">
@@ -72,7 +69,6 @@
     </form>
 </section>
 
-<!-- Süre ölçer script'i -->
 <script>
     // Sayfa yüklendiği anki zamanı kaydet
     const startTime = performance.now();
@@ -89,4 +85,3 @@
     });
 </script>
 {% endblock %}
-

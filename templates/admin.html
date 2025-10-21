@@ -1,5 +1,7 @@
 {% extends "layout.html" %}
+
 {% block title %}Yönetici Paneli{% endblock %}
+
 {% block content %}
 <section class="content-card">
     <h2>Yönetici Paneli</h2>
@@ -10,6 +12,7 @@
     </div>
 </section>
 
+<!-- Toplu Vaka Yükleme Bölümü -->
 <div class="upload-container">
     <!-- CSV Yükleme Kartı -->
     <section class="content-card">
@@ -17,7 +20,7 @@
         <p class="subtitle">Basit vakalar için CSV kullanın.</p>
         <form action="{{ url_for('upload_csv') }}" method="post" enctype="multipart/form-data" class="upload-form">
             <input type="file" name="file" accept=".csv" required>
-            <button type="submit">Yükle</button>
+            <button type="submit">CSV ile Yükle</button>
         </form>
         <div class="csv-format">
             <p><strong>Gereken CSV Formatı:</strong></p>
@@ -25,7 +28,7 @@
         </div>
     </section>
 
-    <!-- YENİ: JSON Yükleme Kartı -->
+    <!-- JSON Yükleme Kartı -->
     <section class="content-card">
         <h3>Toplu Vaka Yükleme (.json)</h3>
         <p class="subtitle">Detaylı vakalar için JSON kullanın.</p>
@@ -41,31 +44,31 @@
             <button type="submit">JSON ile Yükle</button>
         </form>
          <div class="csv-format">
-            <p><strong>Gereken JSON Formatı:</strong></p>
+            <p><strong>Örnek JSON Formatı:</strong></p>
             <pre><code>[
   {
-    "title": "Vaka 3: Ateşli Çocuk",
-    "anamnesis": {"Şikayet": "3 gündür süren ateş"},
-    "physical_exam": {"Bulgu": "Boğazda hiperemi"},
+    "title": "Vaka 3",
+    "anamnesis": {"Şikayet": "..."},
+    "physical_exam": {"Bulgu": "..."},
     "gold_standard_response": {
-      "tanı": "Tonsillit",
-      "tetkik": "Strep A testi",
-      "tedavi_plani": "Antibiyoterapi",
-      "dozaj": "Penisilin V"
+      "tanı": "...", "tetkik": "...",
+      "tedavi_plani": "...", "dozaj": "..."
     },
-    "chatgpt_response": {"tanı": "Akut Farenjit"},
-    "gemini_response": {"tanı": "Viral Farenjit"},
-    "deepseek_response": {"tanı": "Tonsillofarenjit"}
+    "chatgpt_response": {"tanı": "..."},
+    "gemini_response": {"tanı": "..."}
   }
 ]</code></pre>
         </div>
     </section>
 </div>
 
+<!-- Veri Dışa Aktarma Bölümü -->
 <section class="content-card">
     <h3>Veri Dışa Aktarma</h3>
+    <p class="subtitle">Araştırmanızda kullanmak üzere, toplanan tüm yanıt verilerini içeren CSV dosyasını indirin.</p>
     <div class="actions">
         <a href="{{ url_for('export_csv') }}" class="button">Tüm Yanıt Veri Setini İndir (.csv)</a>
     </div>
 </section>
 {% endblock %}
+

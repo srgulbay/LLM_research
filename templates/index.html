@@ -1,18 +1,23 @@
 {% extends "layout.html" %}
+
 {% block title %}Vaka Listesi{% endblock %}
+
 {% block content %}
 <section class="content-card">
     <h2>Mevcut Vakalar</h2>
     <p class="subtitle">Lütfen değerlendirmek için bir vaka seçin. Vakalar her girişte rastgele sıralanır.</p>
     <div class="case-list">
+        {# Veritabanından gelen her bir vaka için bir link oluştur #}
         {% for case in cases %}
             <a href="{{ url_for('case_detail', case_id=case.id) }}">
                 <span>{{ case.title }}</span>
                 <span>&#8594;</span> <!-- Sağ ok ikonu -->
             </a>
         {% else %}
-            <p>Veritabanında henüz vaka bulunmuyor.</p>
+            {# Eğer veritabanında hiç vaka yoksa bu mesajı göster #}
+            <p>Veritabanında henüz vaka bulunmuyor. Lütfen yönetici panelinden vaka yükleyin.</p>
         {% endfor %}
     </div>
 </section>
 {% endblock %}
+

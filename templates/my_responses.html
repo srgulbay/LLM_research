@@ -1,5 +1,44 @@
 {% extends "layout.html" %}
+
 {% block title %}Yanıtlarım{% endblock %}
+
 {% block content %}
-<section class="content-card"><h2>Verdiğiniz Yanıtlar</h2>{% if responses %}<div class="tablo-container"><table><thead><tr><th>Vaka</th><th>Tanınız</th><th>Skorunuz</th><th>Detay</th></tr></thead><tbody>{% for resp in responses|sort(attribute='id', reverse=True) %}<tr><td>{{ resp.case.title }}</td><td>{{ resp.user_diagnosis }}</td><td><strong>{{ resp.score }}</strong></td><td><a href="{{ url_for('results', response_id=resp.id) }}" class="button-sm">Gör</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<p>Henüz bir yanıt vermediniz.</p>{% endif %}</section>
+<section class="content-card">
+    <h2>Verdiğiniz Yanıtlar</h2>
+    <p class="subtitle">Bu sayfada, bugüne kadar çözdüğünüz tüm vakalara verdiğiniz yanıtları ve aldığınız skorları görebilirsiniz.</p>
+    
+    {# Kullanıcının daha önce verdiği yanıtlar varsa tabloyu göster #}
+    {% if responses %}
+        <div class="tablo-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Vaka</th>
+                        <th>Sizin Tanınız</th>
+                        <th>Final Skorunuz</th>
+                        <th>Detaylar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {# Yanıtları en yeniden en eskiye doğru sırala #}
+                    {% for resp in responses|sort(attribute='id', reverse=True) %}
+                    <tr>
+                        <td>{{ resp.case.title }}</td>
+                        <td>{{ resp.user_diagnosis }}</td>
+                        <td><strong>{{ resp.final_score }}</strong></td>
+                        <td>
+                            {# Her yanıt için detaylı sonuç sayfasına link ver #}
+                            <a href="{{ url_for('results', response_id=resp.id) }}" class="button-sm">Sonucu Gör</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        {# Eğer kullanıcı henüz hiç vaka çözmemişse bu mesajı göster #}
+        <p>Henüz hiçbir vakaya yanıt vermediniz. Ana sayfadan bir vaka seçerek başlayabilirsiniz.</p>
+    {% endif %}
+</section>
 {% endblock %}
+

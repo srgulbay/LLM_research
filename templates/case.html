@@ -3,18 +3,20 @@
 {% block title %}{{ case.title }}{% endblock %}
 
 {% block content %}
-<!-- Vaka Detayları (EKSİK OLAN VE DÜZELTİLEN BÖLÜM) -->
+<!-- Vaka Detayları Kartı -->
 <section class="content-card vaka-karti">
     <h2>{{ case.title }}</h2>
     
-    <h3 style="margin-top: 1.5rem;">Anamnez</h3>
+    {# Anamnez bilgilerini JSON'dan çekip listele #}
+    <h3>Anamnez</h3>
     <ul>
         {% for key, value in parse_json(case.anamnesis).items() %}
         <li><strong>{{ key }}:</strong> {{ value }}</li>
         {% endfor %}
     </ul>
 
-    <h3 style="margin-top: 1.5rem;">Fizik Muayene</h3>
+    {# Fizik muayene bulgularını JSON'dan çekip listele #}
+    <h3>Fizik Muayene</h3>
     <ul>
         {% for key, value in parse_json(case.physical_exam).items() %}
         <li><strong>{{ key }}:</strong> {{ value }}</li>
@@ -22,10 +24,10 @@
     </ul>
 </section>
 
-<!-- Yapılandırılmış Yanıt Formu -->
+<!-- Kullanıcı Yanıt Formu Kartı -->
 <section class="content-card form-karti">
-    <h2>Sizin Değerlendirmeniz</h2>
     <form method="POST" id="case-form">
+        <!-- Karar verme süresini saklamak için gizli (hidden) input -->
         <input type="hidden" name="duration_seconds" id="duration_seconds">
         
         <div class="form-grup">
@@ -70,11 +72,21 @@
     </form>
 </section>
 
+<!-- Süre ölçer script'i -->
 <script>
+    // Sayfa yüklendiği anki zamanı kaydet
     const startTime = performance.now();
-    document.getElementById('case-form').addEventListener('submit', function() {
-        const duration = Math.round((performance.now() - startTime) / 1000);
-        document.getElementById('duration_seconds').value = duration;
+    const form = document.getElementById('case-form');
+    const durationInput = document.getElementById('duration_seconds');
+
+    // Kullanıcı formu gönderdiğinde çalışacak fonksiyon
+    form.addEventListener('submit', function() {
+        const endTime = performance.now();
+        // Geçen süreyi hesapla, milisaniyeden saniyeye çevir ve yuvarla
+        const duration = Math.round((endTime - startTime) / 1000);
+        // Hesaplanan süreyi gizli input'un değerine ata
+        durationInput.value = duration;
     });
 </script>
 {% endblock %}
+

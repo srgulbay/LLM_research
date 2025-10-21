@@ -92,7 +92,7 @@ body {
 .form-container { max-width: 500px; margin: 2rem auto; }
 .form-grup { margin-bottom: 1.5rem; }
 .form-grup label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
-input[type="email"], input[type="number"], select, textarea {
+input[type="email"], input[type="number"], input[type="text"], select, textarea {
     width: 100%;
     padding: 0.75rem 1rem;
     border-radius: 0.5rem; /* 8px */
@@ -122,6 +122,9 @@ table { width: 100%; border-collapse: collapse; }
 th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
 thead th { background-color: #F9FAFB; font-weight: 600; color: var(--light-text-color); font-size: 0.875rem; text-transform: uppercase; }
 tbody tr:hover { background-color: #eff6ff; }
+.user-response-header { background-color: #2ecc71; color: white; }
+.altin-standart { background-color: #f1c40f; color: #333; }
+
 
 /* 7. Özel Bileşenler */
 .alert {
@@ -151,13 +154,12 @@ tbody tr:hover { background-color: #eff6ff; }
     color: var(--secondary-color); font-weight: 600; margin-bottom: 1rem; transition: all 0.2s ease;
 }
 .case-list a:hover { border-color: var(--primary-color); background-color: #F0F9FF; transform: scale(1.02); }
+.actions { margin-top: 1rem; }
 
-/* Ayrıntılı Skor Dökümü Stilleri */
 .score-breakdown {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
-    margin-top: -1rem;
     margin-bottom: 2rem;
 }
 .score-item {
@@ -167,10 +169,7 @@ tbody tr:hover { background-color: #eff6ff; }
     border: 1px solid var(--border-color);
     text-align: center;
 }
-.score-item h4 {
-    margin: 0 0 0.5rem 0;
-    color: var(--secondary-color);
-}
+.score-item h4 { margin: 0 0 0.5rem 0; color: var(--secondary-color); }
 .score-item .score-value {
     font-size: 2rem;
     font-weight: 700;
@@ -183,20 +182,20 @@ tbody tr:hover { background-color: #eff6ff; }
     margin: 0;
     min-height: 40px;
 }
-@media (max-width: 600px) {
-    .score-breakdown {
-        grid-template-columns: 1fr;
-    }
-}
 
-/* Dörtlü Skor Dökümü İçin Mobil Uyum */
-@media (max-width: 960px) {
-    .score-breakdown {
-        grid-template-columns: 1fr 1fr;
-    }
+/* 8. Yönetici Paneli Özel Stilleri */
+.admin-stats {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
 }
-
-/* Form ve Admin Paneli Ek Stilleri */
+.upload-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
 .form-divider {
     border: none;
     border-top: 1px solid var(--border-color);
@@ -214,10 +213,7 @@ tbody tr:hover { background-color: #eff6ff; }
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
 }
-.upload-form button {
-    width: auto;
-    flex-shrink: 0;
-}
+.upload-form button { width: auto; flex-shrink: 0; }
 .csv-format {
     background-color: var(--background-color);
     padding: 1rem;
@@ -231,18 +227,16 @@ tbody tr:hover { background-color: #eff6ff; }
     border-radius: 0.25rem;
     white-space: pre-wrap;
     word-break: break-all;
+    font-size: 0.8rem;
 }
 
-/* Admin Panelindeki Yükleme Bölümü */
-.upload-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    margin-bottom: 2rem;
-}
-
+/* 9. Mobil Uyumluluk */
 @media (max-width: 960px) {
-    .upload-container {
-        grid-template-columns: 1fr;
-    }
+    .upload-container { grid-template-columns: 1fr; }
+    .score-breakdown { grid-template-columns: 1fr 1fr; }
 }
+@media (max-width: 768px) {
+    .nav-links a { margin-left: 1rem; }
+    .score-breakdown { grid-template-columns: 1fr; }
+}
+

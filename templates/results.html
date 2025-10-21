@@ -1,20 +1,39 @@
 {% extends "layout.html" %}
+
 {% block title %}Vaka Sonuçları{% endblock %}
+
 {% block content %}
 <section class="content-card">
     <h2>Sonuçlar: {{ user_response.case.title }}</h2>
     
+    <!-- Genel Skor ve Süre Kartı -->
     <div class="score-card">
         <h3>Final Skorunuz: {{ user_response.final_score }} / 100</h3>
         <p class="reasoning">Bu vaka için harcanan süre: <strong>{{ user_response.duration_seconds }} saniye</strong></p>
     </div>
 
-    <!-- Skor Dökümü -->
+    <!-- Dört Aşamalı Ayrıntılı Skor Dökümü -->
     <div class="score-breakdown">
-        <div class="score-item"><h4>Tanı</h4><p class="score-value">{{ user_response.diagnosis_score }}</p><p class="score-reason">{{ user_response.diagnosis_reasoning }}</p></div>
-        <div class="score-item"><h4>Tetkik</h4><p class="score-value">{{ user_response.investigation_score }}</p><p class="score-reason">{{ user_response.investigation_reasoning }}</p></div>
-        <div class="score-item"><h4>Tedavi</h4><p class="score-value">{{ user_response.treatment_score }}</p><p class="score-reason">{{ user_response.treatment_reasoning }}</p></div>
-        <div class="score-item"><h4>Dozaj</h4><p class="score-value">{{ user_response.dosage_score }}</p><p class="score-reason">{{ user_response.dosage_reasoning }}</p></div>
+        <div class="score-item">
+            <h4>Tanı Yeterliliği</h4>
+            <p class="score-value">{{ user_response.diagnosis_score }}</p>
+            <p class="score-reason">{{ user_response.diagnosis_reasoning }}</p>
+        </div>
+        <div class="score-item">
+            <h4>Tetkik Uygunluğu</h4>
+            <p class="score-value">{{ user_response.investigation_score }}</p>
+            <p class="score-reason">{{ user_response.investigation_reasoning }}</p>
+        </div>
+        <div class="score-item">
+            <h4>Tedavi Planı</h4>
+            <p class="score-value">{{ user_response.treatment_score }}</p>
+            <p class="score-reason">{{ user_response.treatment_reasoning }}</p>
+        </div>
+        <div class="score-item">
+            <h4>Dozaj ve Pratik</h4>
+            <p class="score-value">{{ user_response.dosage_score }}</p>
+            <p class="score-reason">{{ user_response.dosage_reasoning }}</p>
+        </div>
     </div>
 </section>
 
@@ -34,14 +53,10 @@
                 </tr>
             </thead>
             <tbody>
-                {# HATA DÜZELTMESİ: Veritabanından gelen veriyi JSON'a uygun hale getir #}
-                {% set chatgpt_str = user_response.case.chatgpt_response | replace("'", '"') | replace("None", '"N/A"') %}
-                {% set gemini_str = user_response.case.gemini_response | replace("'", '"') | replace("None", '"N/A"') %}
-                {% set deepseek_str = user_response.case.deepseek_response | replace("'", '"') | replace("None", '"N/A"') %}
-
-                {% set chatgpt = parse_json(chatgpt_str) %}
-                {% set gemini = parse_json(gemini_str) %}
-                {% set deepseek = parse_json(deepseek_str) %}
+                {# Veritabanından gelen AI yanıtlarını JSON olarak parse et #}
+                {% set chatgpt = parse_json(user_response.case.chatgpt_response) %}
+                {% set gemini = parse_json(user_response.case.gemini_response) %}
+                {% set deepseek = parse_json(user_response.case.deepseek_response) %}
                 <tr>
                     <td><strong>Tanı</strong></td>
                     <td>{{ user_response.user_diagnosis }}</td>
@@ -73,5 +88,9 @@
             </tbody>
         </table>
     </div>
+    <div class="actions">
+        <a href="{{ url_for('index') }}" class="button" style="width: auto; margin-top: 1.5rem;">Ana Sayfaya Dön</a>
+    </div>
 </section>
 {% endblock %}
+

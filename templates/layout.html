@@ -3,28 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Tıbbi Vaka Platformu{% endblock %}</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+    <title>{% block title %}LLM_Research Platformu{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <!-- Üst Navigasyon Çubuğu -->
     <nav class="navbar">
         <div class="container nav-container">
-            <a href="{{ url_for('index') }}" class="nav-brand">Vaka Platformu</a>
+            <a href="{{ url_for('index') }}" class="nav-brand">LLM_Research</a>
             <div class="nav-links">
                 {% if current_user.is_authenticated %}
+                    {# Kullanıcı giriş yapmışsa gösterilecek linkler #}
                     {% if current_user.is_admin %}
-                        <a href="{{ url_for('admin_panel') }}">Yönetici Paneli</a>
+                        <a href="{{ url_for('admin_panel') }}">Yönetici</a>
                     {% endif %}
                     <a href="{{ url_for('my_responses') }}">Yanıtlarım</a>
-                    <a href="{{ url_for('logout') }}">Çıkış Yap ({{ current_user.email }})</a>
+                    <a href="{{ url_for('logout') }}">Çıkış Yap</a>
                 {% else %}
-                    <a href="{{ url_for('giris') }}">Giriş Yap / Kayıt Ol</a>
+                    {# Misafir kullanıcı için gösterilecek linkler #}
+                    <a href="{{ url_for('giris') }}">Giriş / Kayıt</a>
                 {% endif %}
             </div>
         </div>
     </nav>
+
+    <!-- Ana İçerik Alanı -->
     <div class="container main-container">
+        {# Flask'in flash mesajlarını (örn: "başarıyla giriş yaptınız") göstermek için #}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -32,9 +40,12 @@
                 {% endfor %}
             {% endif %}
         {% endwith %}
+        
         <main>
+            {# Diğer tüm HTML dosyalarının içeriği bu bloğun içine gelecektir #}
             {% block content %}{% endblock %}
         </main>
     </div>
 </body>
 </html>
+

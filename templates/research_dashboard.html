@@ -1,18 +1,23 @@
-{% extends "layout.html" %}
+{% extends "layout_new.html" %}
 
 {% block title %}{{ research.title }}{% endblock %}
 
 {% block content %}
-<div class="form-container">
-    <section class="content-card" style="text-align: center;">
-        <h2>{{ research.title }}</h2>
-        <p class="subtitle" style="font-size: 1.1rem; margin-bottom: 1rem;">{{ research.description }}</p>
-        <div class="score-card" style="margin-bottom: 2rem;">
-            <h3>Bu araştırmada sizi <strong>{{ total_cases - completed_count }} vaka</strong> bekliyor.</h3>
-            <p class="reasoning">Katkılarınız için şimdiden teşekkür ederiz!</p>
+<div class="max-w-2xl mx-auto text-center">
+    <div class="bg-white p-10 rounded-xl shadow-lg">
+        <h2 class="text-3xl font-bold text-slate-900">{{ research.title }}</h2>
+        <p class="text-slate-500 my-4 text-lg">{{ research.description }}</p>
+        
+        <div class="bg-slate-100 p-6 rounded-lg my-6">
+            <h3 class="text-xl font-bold text-slate-800">
+                Bu araştırmada sizi <span class="text-blue-600">{{ total_cases - completed_count }} vaka</span> bekliyor.
+            </h3>
+            <p class="text-slate-600 mt-2">Katkılarınız için şimdiden teşekkür ederiz!</p>
         </div>
+        
         {% if next_case_id %}
-            <a href="{{ url_for('case_detail', case_id=next_case_id) }}" class="button">
+            <a href="{{ url_for('case_detail', case_id=next_case_id) }}" 
+               class="inline-block w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg shadow-md hover:bg-blue-700 transition duration-200 text-lg">
                 {% if completed_count > 0 %}
                     Araştırmaya Devam Et
                 {% else %}
@@ -20,8 +25,8 @@
                 {% endif %}
             </a>
         {% else %}
-             <p>Bu araştırmayı zaten tamamladınız.</p>
+             <p class="text-green-600 font-semibold">Bu araştırmayı zaten tamamladınız.</p>
         {% endif %}
-    </section>
+    </div>
 </div>
 {% endblock %}

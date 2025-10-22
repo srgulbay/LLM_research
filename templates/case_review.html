@@ -1,140 +1,34 @@
-{% extends "layout.html" %}
+{% extends "layout_new.html" %}
 {% block title %}Vaka Analizi: {{ case.content.title }}{% endblock %}
 
 {% block content %}
-
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-    <div>
-        <h2 style="margin: 0;">Vaka Analiz Ekranı</h2>
-        <p class="subtitle" style="margin: 0;">{{ case.content.title }}</p>
+<div class="max-w-6xl mx-auto">
+    <div class="mb-8">
+        <a href="{{ url_for('admin_dashboard') }}" class="text-blue-600 dark:text-blue-400 mb-4">← Geri</a>
+        <h2 class="text-3xl font-bold text-slate-900 dark:text-white">Vaka Analiz Ekranı</h2>
+        <p class="text-slate-600 dark:text-slate-400 mt-2">{{ case.content.title }}</p>
     </div>
-    <div class="actions" style="display: flex; gap: 1rem;">
-        <button id="add-llm-response-btn" class="button-sm" style="background-color: var(--success-color);">+ LLM Yanıtı Ekle</button>
-        <a href="{{ url_for('edit_case', case_id=case.id) }}" class="button-sm">Vaka Detaylarını Düzenle</a>
+    
+    {% if stats.response_count %}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-400">Yanıt Sayısı</h3>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2">{{ stats.response_count }}</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-400">Ortalama Süre (s)</h3>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2">{{ stats.avg_duration | round(1) }}</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <a href="{{ url_for('edit_case', case_id=case.id) }}" class="inline-block bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">
+                Vakayı Düzenle
+            </a>
+        </div>
     </div>
+    {% else %}
+    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-6 rounded-xl mb-8">
+        <p class="text-yellow-800 dark:text-yellow-400">Bu vaka için henüz yanıt bulunmuyor.</p>
+    </div>
+    {% endif %}
 </div>
-
-{% if stats and stats.response_count > 0 %}
-<div class="score-breakdown">
-    <div class="score-item"><h4>Toplam Yanıt Sayısı</h4><p class="score-value">{{ stats.response_count }}</p></div>
-    <div class="score-item"><h4>Ort. Çözüm Süresi</h4><p class="score-value">{{ "%.1f"|format(stats.avg_duration) }} sn</p></div>
-</div>
-{% for chart_title, chart_data in stats.choice_questions.items() %}
-<section class="content-card" style="margin-bottom: 2rem;">
-    <h4>Yanıt Dağılımı: "{{ chart_title }}"</h4>
-    <canvas id="chart-{{ loop.index }}"></canvas>
-</section>
-{% endfor %}
-{% endif %}
-
-<section class="content-card">
-    <h3>Tüm Yanıtlar ve Karşılaştırmalar</h3>
-    <div class="tablo-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Katılımcı (ID)</th>
-                    {% for q in case.content.questions %}
-                    <th>{{ q.label }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for resp in responses %}
-                <tr class="user-response-header">
-                    <td>Katılımcı #{{ resp.author.id }}</td>
-                    {% for q in case.content.questions %}
-                    <td>{{ resp.answers.get(q.id, '-') }}</td>
-                    {% endfor %}
-                </tr>
-                {% else %}
-                <tr><td colspan="{{ case.content.questions|length + 1 }}">Bu vakaya henüz yanıt verilmemiş.</td></tr>
-                {% endfor %}
-
-                <tr style="border-top: 3px solid var(--primary-color);"><td colspan="{{ case.content.questions|length + 1 }}"></td></tr>
-                <tr>
-                    <td><strong>Altın Standart</strong></td>
-                    {% for q in case.content.questions %}
-                    <td><strong>{{ case.content.gold_standard.get(q.id, '-') }}</strong></td>
-                    {% endfor %}
-                </tr>
-                {% for llm_name, llm_answer_map in case.content.get('llm_responses', {}).items() %}
-                <tr>
-                    <td><em>{{ llm_name | capitalize }}</em></td>
-                    {% for q in case.content.questions %}
-                    <td><em>{{ llm_answer_map if not llm_answer_map is mapping else llm_answer_map.get(q.id, '-') }}</em></td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
-
-<div id="llm-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);">
-    <div class="form-container" style="margin-top: 10%;">
-        <section class="content-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>LLM Yanıtı Ekle</h2>
-                <button id="close-modal-btn" style="background: none; border: none; font-size: 2rem; cursor: pointer;">&times;</button>
-            </div>
-            <form id="llm-response-form">
-                <div class="form-grup">
-                    <label for="llm_name">Yapay Zeka Modeli</label>
-                    <select id="llm_name" name="llm_name" required>
-                        {% for llm in all_llms %}<option value="{{ llm.name }}">{{ llm.name }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div class="form-grup">
-                    <label for="response_text">Modelin Yanıtı</label>
-                    <textarea id="response_text" name="response_text" rows="4" required></textarea>
-                </div>
-                <button type="submit">Yanıtı Kaydet</button>
-            </form>
-        </section>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const modal = document.getElementById('llm-modal');
-        const addBtn = document.getElementById('add-llm-response-btn');
-        const closeBtn = document.getElementById('close-modal-btn');
-        const form = document.getElementById('llm-response-form');
-        const caseId = {{ case.id }};
-
-        addBtn && (addBtn.onclick = () => { modal.style.display = 'block'; });
-        closeBtn && (closeBtn.onclick = () => { modal.style.display = 'none'; });
-        window.onclick = (event) => { if (event.target == modal) { modal.style.display = 'none'; } }
-
-        form && form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            fetch(`/api/case/${caseId}/add_llm_response`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ llm_name: form.llm_name.value, response_text: form.response_text.value })
-            })
-            .then(res => res.json())
-            .then(data => {
-                alert(data.message);
-                if (data.status === 'success') location.reload();
-            });
-        });
-
-        const stats = {{ stats | tojson }};
-        let chartIndex = 1;
-        for (const [key, chartData] of Object.entries(stats.choice_questions || {})) {
-            const ctx = document.getElementById(`chart-${chartIndex}`);
-            if (ctx) {
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: { labels: chartData.labels, datasets: [{ label: 'Yanıt Sayısı', data: chartData.data, backgroundColor: '#3B82F6' }] },
-                    options: { indexAxis: 'y' }
-                });
-            }
-            chartIndex++;
-        }
-    });
-</script>
 {% endblock %}

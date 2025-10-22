@@ -1,111 +1,128 @@
-from app import app, db
-from app import User, Case, ReferenceAnswer, Research # Modelleri import et
-from werkzeug.security import generate_password_hash
+# init_db.py (10 Sanal Kullanıcı ve 200 Yanıt Üreten Kapsamlı Sürüm)
+
+import random
 import json
-import datetime # Eklendi
+from faker import Faker
+from app import app, db
+from app import User, Research, Case, LLM, UserResponse
+from werkzeug.security import generate_password_hash
 
-def create_initial_admin():
-    """İlk yönetici hesabını oluşturur veya günceller."""
+# Sahte veri üretimi için Faker kütüphanesini başlat
+fake = Faker('tr_TR')
+
+def create_initial_data():
+    """Tüm başlangıç verilerini (yönetici, kullanıcılar, LLM'ler, araştırmalar, vakalar ve yanıtlar) oluşturur."""
     with app.app_context():
+        # --- 1. YÖNETİCİ OLUŞTURMA ---
         admin_email = "srgulbay@gmail.com"
-        admin_user = User.query.filter_by(email=admin_email).first()
-
-        # Güvenli şifre hash'ini oluştur
-        hashed_password = generate_password_hash("14531453", method='pbkdf2:sha256')
-
-        if not admin_user:
-            # Kullanıcı yoksa, yeni bir tane oluştur
+        if not User.query.filter_by(email=admin_email).first():
+            hashed_password = generate_password_hash("14531453", method='pbkdf2:sha256')
             admin_user = User(
-                email=admin_email,
-                password_hash=hashed_password,
-                is_admin=True,
-                # Adminin onam veya demografi doldurması gerekmez
-                has_consented=True,
-                profession="Admin",
-                experience=0
+                email=admin_email, password_hash=hashed_password, is_admin=True,
+                has_consented=True, profession="Admin", experience=10
             )
             db.session.add(admin_user)
             print(f"'{admin_email}' yönetici hesabı oluşturuldu.")
-        else:
-            # Kullanıcı varsa, şifresini ve admin durumunu güncelle
-            admin_user.password_hash = hashed_password
-            admin_user.is_admin = True
-            # Adminin diğer bilgilerini de güncelleyelim (isteğe bağlı)
-            admin_user.has_consented=True
-            admin_user.profession="Admin"
-            admin_user.experience=0
-            print(f"'{admin_email}' yönetici hesabı güncellendi.")
+
+        # --- 2. 10 SANAL KULLANICI OLUŞTURMA ---
+        professions = ["Pratisyen Hekim", "Aile Hekimi Uzmanı", "Çocuk Sağlığı ve Hastalıkları Uzmanı", "Tıp Öğrencisi", "Diğer Hekim"]
+        users = []
+        if User.query.count() <= 1: # Sadece admin varsa kullanıcıları oluştur
+            for i in range(10):
+                user = User(
+                    email=f"kullanici{i+1}@ornek.com",
+                    profession=random.choice(professions),
+                    experience=random.randint(0, 15),
+                    has_consented=True
+                )
+                users.append(user)
+            db.session.add_all(users)
+            print(f"{len(users)} sanal kullanıcı oluşturuldu.")
+
+        # --- 3. LLM MODELLERİNİ OLUŞTURMA ---
+        llm_names = ['GPT-4', 'Gemini-Pro', 'Llama3', 'Claude-3']
+        if LLM.query.count() == 0:
+            for name in llm_names:
+                db.session.add(LLM(name=name))
+            print(f"{len(llm_names)} LLM modeli eklendi.")
+
+        # --- 4. ARAŞTIRMALARI VE VAKALARI OLUŞTURMA ---
+        researches = []
+        if Research.query.count() == 0:
+            research_titles = [
+                "Pediatrik Pnömoni Tanısında Hekim ve LLM Karşılaştırması",
+                "Akut Otitis Media Yönetiminde Tanısal Yaklaşımlar",
+                "Gastroenterit Vakalarında Dehidratasyon Değerlendirmesi",
+                "Febril Konvülsiyon Geçiren Çocukta Ayırıcı Tanı Süreçleri"
+            ]
+            for i, title in enumerate(research_titles):
+                research = Research(title=title, description=f"Bu, '{title}' üzerine odaklanan bir test araştırmasıdır.", is_active=True)
+                researches.append(research)
+                db.session.add(research)
+                db.session.flush() # ID'nin atanması için
+
+                for j in range(5): # Her araştırma için 5 vaka
+                    case_content = {
+                        "title": f"Vaka #{j + 1}: {title.split(' ')[1]}",
+                        "sections": [{"title": "Anamnez", "content": f"{j+1}. vakanın anamnez özeti..."}, {"title": "Fizik Muayene", "content": "Bulgular..."}],
+                        "questions": [
+                            {"id": f"q1_r{i}c{j}", "type": "open-ended", "label": "1. Ön tanınız nedir?"},
+                            {"id": f"q2_r{i}c{j}", "type": "multiple-choice", "label": "2. Hangi tetkiki istersiniz?", "options": ["Kan Sayımı", "Akciğer Grafisi", "Boğaz Kültürü", "İdrar Tahlili"]}
+                        ],
+                        "gold_standard": {f"q1_r{i}c{j}": f"Doğru Tanı {j+1}", f"q2_r{i}c{j}": random.choice(["Kan Sayımı", "Akciğer Grafisi"])},
+                        "llm_responses": {
+                            "GPT-4": f"GPT-4'ün Vaka {j+1} için örnek yanıtı.",
+                            "Gemini-Pro": f"Gemini-Pro'nun Vaka {j+1} için örnek yanıtı."
+                        }
+                    }
+                    case = Case(research_id=research.id, content=case_content)
+                    db.session.add(case)
+            print(f"{len(researches)} araştırma ve {len(researches) * 5} vaka oluşturuldu.")
+        
+        db.session.commit() # Buraya kadar olan her şeyi kaydet
+
+        # --- 5. SANAL YANITLARI OLUŞTURMA ---
+        if UserResponse.query.count() == 0:
+            all_users = User.query.filter_by(is_admin=False).all()
+            all_cases = Case.query.all()
+            responses = []
+            for user in all_users:
+                for case in all_cases:
+                    answers = {}
+                    for q in case.content.get('questions', []):
+                        if q['type'] == 'multiple-choice':
+                            answers[q['id']] = random.choice(q['options'])
+                        else:
+                            answers[q['id']] = f"{user.profession} tarafından verilen örnek tanı."
+                    
+                    response = UserResponse(
+                        user_id=user.id,
+                        case_id=case.id,
+                        answers=answers,
+                        duration_seconds=random.randint(60, 300)
+                    )
+                    responses.append(response)
+            
+            db.session.add_all(responses)
+            print(f"{len(responses)} adet sanal kullanıcı yanıtı oluşturuldu.")
 
         db.session.commit()
 
-def seed_database():
-    """Başlangıç verilerini (araştırma ve vakaları) ekler."""
+
+# --- Ana Çalışma Bloğu ---
+if __name__ == "__main__":
     with app.app_context():
-        # Eğer zaten bir vaka varsa, işlemi atla
-        if Case.query.first() is not None:
-            print("Veritabanı zaten veri içeriyor, seeding atlandı.")
-            return
-
-        print("Veritabanı boş, başlangıç verileri ekleniyor...")
-
+        print("Veritabanı tabloları oluşturuluyor...")
+        db.create_all()
+        print("Tablolar başarıyla oluşturuldu.")
+        
+        # Eğer `faker` kütüphanesi kurulu değilse, bu script hata verecektir.
         try:
-            # 1. Yeni bir Araştırma oluştur
-            new_research = Research(
-                title="Primer İmmün Yetmezlikler Erken Tanısı LLM-İnsan Araştırması",
-                description="Bu araştırma, sık enfeksiyon geçiren çocuklarda PİY erken tanısına yönelik hekim ve LLM performansını karşılaştırmaktadır.",
-                is_active=True
-            )
-            db.session.add(new_research)
-            # ID'nin bu aşamada atanmasını sağlamak için flush() kullanıyoruz
-            db.session.flush()
-            print(f"Araştırma oluşturuldu: {new_research.title}")
+            Faker
+        except NameError:
+            print("\nUYARI: 'Faker' kütüphanesi bulunamadı. Lütfen 'pip install Faker' komutuyla kurun.\n")
+            exit()
 
-            # 2. Yeni JSON formatında bir Vaka içeriği tanımla
-            case_content_data = {
-                "case_id": "PIY_Vaka_01",
-                "title": "Vaka 1: Tekrarlayan Akciğer Enfeksiyonu",
-                "sections": [
-                    { "title": "Anamnez", "content": "2 yaşında erkek hasta, son 6 ayda 4 kez zatürre tanısı almış..." },
-                    { "title": "Fizik Muayene", "content": "Solunum sesleri bilateral kaba, ral duyulmadı..." }
-                ],
-                "questions": [
-                    { "id": "q1_tani", "type": "open-ended", "label": "1. Bu hastadaki en olası ön tanınız nedir?" },
-                    { "id": "q2_tetkik", "type": "multiple-choice", "label": "2. Hangi tetkiki ilk istersiniz?", "options": ["Akciğer Grafisi", "Tam Kan Sayımı", "İmmünglobulin Düzeyleri (IgG, IgA, IgM)", "Ter Testi"] },
-                    { "id": "q3_ek_not", "type": "textarea", "label": "3. Eklemek istediğiniz notlar var mı?" }
-                ],
-                "gold_standard": {
-                    "q1_tani": "Primer İmmün Yetmezlik şüphesi",
-                    "q2_tetkik": "İmmünglobulin Düzeyleri (IgG, IgA, IgM)",
-                    "q3_ek_not": "Hastanın aile öyküsü sorgulanmalı ve lenfosit alt grup analizi planlanmalıdır."
-                }
-            }
+        create_initial_data()
 
-            # 3. Vakayı oluştur ve Araştırmaya bağla. content alanına tüm JSON'ı ata.
-            new_case = Case(
-                research_id=new_research.id,
-                content=case_content_data
-            )
-            db.session.add(new_case)
-            print(f"Vaka oluşturuldu: {case_content_data['title']}")
-
-            db.session.commit()
-            print("Başlangıç verileri başarıyla eklendi.")
-        except Exception as e:
-            db.session.rollback()
-            print(f"Seeding sırasında hata: {e}")
-
-
-print("Veritabanı başlatma script'i (init_db.py) çalışıyor...")
-
-with app.app_context():
-    # Önce tüm tabloları oluştur
-    db.create_all()
-    print("Tablolar başarıyla oluşturuldu.")
-
-    # Sonra yöneticiyi oluştur/güncelle
-    create_initial_admin()
-
-    # Son olarak başlangıç vakalarını ekle
-    seed_database()
-
-print("Veritabanı başlatma tamamlandı.")
+    print("\nVeritabanı başlatma ve doldurma işlemi tamamlandı.")

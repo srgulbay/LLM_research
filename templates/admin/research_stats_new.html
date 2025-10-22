@@ -1,0 +1,125 @@
+{% extends "admin/admin_layout_new.html" %}
+{% block title %}Araştırma İstatistikleri{% endblock %}
+
+{% block admin_content %}
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8">
+        <a href="{{ url_for('research_admin_dashboard', research_id=research.id) }}" class="text-blue-600 dark:text-blue-400">← Geri</a>
+        <h2 class="text-3xl font-bold text-slate-900 dark:text-white mt-2">{{ research.title }} - Bilimsel İstatistikler</h2>
+    </div>
+
+    <!-- Temel Metrikler -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-400">Toplam Yanıt</h3>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2">{{ stats.total_responses }}</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-400">Ort. Deneyim</h3>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2">{{ stats.avg_experience | round(1) }} yıl</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-400">Ort. Süre</h3>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2">{{ stats.avg_duration | round(0) }} s</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-400">Ort. Güven</h3>
+            <p class="text-3xl font-bold text-slate-900 dark:text-white mt-2">{{ stats.avg_confidence | round(0) }}/100</p>
+        </div>
+    </div>
+
+    <!-- Grafikler -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Meslek Dağılımı -->
+        {% if stats.profession_chart.labels %}
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Katılımcı Meslek Dağılımı</h3>
+            <div class="space-y-3">
+                {% for label, count in zip(stats.profession_chart.labels, stats.profession_chart.data) %}
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-700 dark:text-slate-300">{{ label }}</span>
+                    <div class="flex items-center gap-2">
+                        <div class="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-blue-500" style="width: {{ (count / stats.total_responses * 100) | round(0) }}%"></div>
+                        </div>
+                        <span class="font-semibold text-slate-900 dark:text-white w-8 text-right">{{ count }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Unvanlara Göre Güven Skoru -->
+        {% if stats.confidence_by_profession.labels %}
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Meslek Başına Ortalama Güven Skoru</h3>
+            <div class="space-y-3">
+                {% for label, score in zip(stats.confidence_by_profession.labels, stats.confidence_by_profession.data) %}
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-700 dark:text-slate-300">{{ label }}</span>
+                    <div class="flex items-center gap-2">
+                        <div class="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-green-500" style="width: {{ score }}%"></div>
+                        </div>
+                        <span class="font-semibold text-slate-900 dark:text-white w-12 text-right">{{ score | round(1) }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Deneyim vs. Karar Süresi -->
+        {% if stats.experience_vs_duration.labels %}
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Deneyim Yılı vs. Karar Süresi</h3>
+            <div class="space-y-3">
+                {% for label, duration in zip(stats.experience_vs_duration.labels, stats.experience_vs_duration.data) %}
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-700 dark:text-slate-300">{{ label }}</span>
+                    <div class="flex items-center gap-2">
+                        <div class="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-orange-500" style="width: {{ (duration / 300 * 100) | round(0) }}%"></div>
+                        </div>
+                        <span class="font-semibold text-slate-900 dark:text-white w-12 text-right">{{ duration | round(0) }}s</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Güven Skoru Dağılımı -->
+        {% if stats.confidence_distribution.labels %}
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Güven Skoru Dağılımı</h3>
+            <div class="space-y-3">
+                {% for label, count in zip(stats.confidence_distribution.labels, stats.confidence_distribution.data) %}
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-700 dark:text-slate-300">{{ label }}%</span>
+                    <div class="flex items-center gap-2">
+                        <div class="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-purple-500" style="width: {{ (count / (stats.total_responses / 4) * 100) | round(0) }}%"></div>
+                        </div>
+                        <span class="font-semibold text-slate-900 dark:text-white w-8 text-right">{{ count }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Açıklamalar -->
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-6 rounded-xl">
+        <h3 class="font-semibold text-blue-900 dark:text-blue-100 mb-2">📊 İstatistik Açıklamaları</h3>
+        <ul class="text-blue-800 dark:text-blue-200 space-y-1 text-sm">
+            <li>• <strong>Ortalama Güven:</strong> Katılımcıların kararlarına ne kadar güven duydukları (1-100 ölçeği)</li>
+            <li>• <strong>Meslek Başına Güven:</strong> Farklı unvanlardaki hekimlerin güven düzeylerinin karşılaştırması</li>
+            <li>• <strong>Deneyim vs. Süre:</strong> Tecrübeliler vakaları daha mı hızlı çözüyor?</li>
+            <li>• <strong>Güven Dağılımı:</strong> Katılımcıların genel olarak kararlarından ne kadar emin oldukları</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

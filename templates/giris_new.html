@@ -3,16 +3,23 @@
 {% block title %}Giriş Yap / Kayıt Ol{% endblock %}
 
 {% block content %}
-<div class="fade-in max-w-lg mx-auto">
+<div class="max-w-lg mx-auto">
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
+            <div class="mb-6 space-y-4">
             {% for category, message in messages %}
-                {% set bg_color = 'bg-blue-100 border-blue-500 text-blue-700' if category == 'info' else 'bg-green-100 border-green-500 text-green-700' if category == 'success' else 'bg-red-100 border-red-500 text-red-700' %}
-                <div class="border-l-4 p-4 rounded-md shadow-sm mb-6 {{ bg_color }}" role="alert">
+                {% set colors = {
+                    'info': 'bg-blue-100 border-blue-500 text-blue-700',
+                    'success': 'bg-green-100 border-green-500 text-green-700',
+                    'danger': 'bg-red-100 border-red-500 text-red-700',
+                    'warning': 'bg-yellow-100 border-yellow-500 text-yellow-700'
+                } %}
+                <div class="border-l-4 p-4 rounded-md shadow-sm {{ colors.get(category, 'bg-gray-100 border-gray-500 text-gray-700') }}" role="alert">
                     <p>{{ message }}</p>
                 </div>
             {% endfor %}
+            </div>
         {% endif %}
     {% endwith %}
 
@@ -30,7 +37,7 @@
             </div>
             
             <button type="submit" 
-                    class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition duration-200">
+                    class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition duration-200">
                 Devam Et
             </button>
         </form>

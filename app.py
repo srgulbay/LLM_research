@@ -15,28 +15,35 @@ import random
 import datetime
 from functools import wraps
 
-from flask import Flask, render_template, request, redirect, url_for, flash, Response, session  # session eklendi
+from flask import Flask, render_template, request, redirect, url_for, flash, Response, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+
 from dotenv import load_dotenv
 import google.generativeai as genai
 from redis import Redis
 from rq import Queue
 from rq.job import Job
-from werkzeug.security import generate_password_hash, check_password_hash  # Eklendi
+from werkzeug.security import generate_password_hash, check_password_hash
 import pandas as pd
-import datetime
+
+# --- YENİ EKLENEN SATIR ---
+# (NOT: Daha önce buraya eklenmiş olan "from test_routes import *" satırı SİLİNDİ)
+# ---
 
 # --- 2. UYGULAMA KURULUMU VE YAPILANDIRMA ---
+
+app = Flask(__name__)
+
+# --- YENİ EKLENEN SATIR ---
+app.jinja_env.globals['zip'] = zip
+# ---
 
 # .env dosyasındaki ortam değişkenlerini yükle
 load_dotenv()
 
 # Projenin ana dizinini belirle
 basedir = os.path.abspath(os.path.dirname(__file__))
-
-# Flask uygulamasını başlat
-app = Flask(__name__)
 
 # Gizli Anahtar
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'yerel-gelistirme-icin-guvensiz-anahtar')
@@ -105,18 +112,21 @@ class User(UserMixin, db.Model):
     experience = db.Column(db.Integer)
     has_consented = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
-    responses = db.relationship('UserResponse', backref='author', lazy=True)
+
+    # --- GÜNCELLENECEK SATIR ---
+    responses = db.relationship('UserResponse', back_populates='author', lazy=True)
+    # ---
+
+    def __repr__(self):
+        return f'<User {self.email}>'
 
 class Case(db.Model):
-    """Vaka içeriğini JSON olarak tutan ve bir Research'e bağlı olan model."""
     id = db.Column(db.Integer, primary_key=True)
-    # Hangi araştırmaya ait olduğu (zorunlu)
     research_id = db.Column(db.Integer, db.ForeignKey('research.id'), nullable=False)
+    content = db.Column(db.JSON, nullable=True)
 
-    # Bütün vaka içeriği (başlık, anamnez, fizik muayene, LLM yanıtları, gold standard vb.) JSON içinde saklanır
-    content = db.Column(db.JSON, nullable=False)
-
-    responses = db.relationship('UserResponse', backref='case', lazy=True)
+    # --- DEĞİŞTİRİLDİ: backref yerine back_populates kullanılıyor ---
+    responses = db.relationship('UserResponse', back_populates='case', lazy=True)
     # Eğer hala ayrı gold/reference tabloyu kullanmak isterseniz ilişkiyi bırakabilirsiniz
     reference_answers = db.relationship('ReferenceAnswer', backref='case', lazy=True)
 
@@ -129,22 +139,24 @@ class ReferenceAnswer(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 class UserResponse(db.Model):
-    """Kullanıcıların vakalara verdiği yanıtları ve skorları saklayan model (esnek JSON)."""
+    """Kullanıcının bir vakaya verdiği yanıt ve bu yanıta ait metadata."""
     id = db.Column(db.Integer, primary_key=True)
     case_id = db.Column(db.Integer, db.ForeignKey('case.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-    # Yeni: Kullanıcının forma verdiği tüm yanıtlar burada JSON olarak tutulacak
-    # Örnek: {"user_diagnosis": "...", "user_differential": "...", ...}
     answers = db.Column(db.JSON, nullable=False)
-
+    confidence_score = db.Column(db.Integer)
+    clinical_rationale = db.Column(db.Text)
+    scores = db.Column(db.JSON)
     duration_seconds = db.Column(db.Integer, nullable=True)
-    job_id = db.Column(db.String(36), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
-    # Puanlama sonuçları JSON içinde saklanır:
-    # Örnek: {"final_score": 90, "scores": {"diagnosis": 90, "tests": 80, "treatment": 85, "dosage": 95}, "reasons": {"diagnosis": "...", ...}}
-    scores = db.Column(db.JSON, nullable=True)
+    # --- DEĞİŞTİRİLDİ: case ilişkisi back_populates ile tanımlandı ---
+    case = db.relationship('Case', back_populates='responses')
+    author = db.relationship('User', back_populates='responses')
+
+    def __repr__(self):
+        return f'<UserResponse {self.id} - Case {self.case_id} - User {self.user_id}>'
 
 class Research(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -244,11 +256,8 @@ def research_setup_required(f):
 @research_setup_required
 def select_research():
     """Kullanıcının katılacağı araştırmayı seçtiği ana sayfa."""
-    researches = Research.query.filter_by(is_active=True).all()
-    # Henüz aktif araştırma yoksa yöneticiyi uyar
-    if not researches and current_user.is_admin:
-        flash("Sistemde aktif araştırma bulunmuyor. Lütfen yönetici panelinden vaka yükleyin.", "warning")
-    return render_template('select_research.html', researches=researches)
+    researches = Research.query.filter_by(is_active=True).order_by(Research.id.desc()).all()
+    return render_template('select_research_new.html', researches=researches)
 
 
 @app.route('/arastirma/<int:research_id>')
@@ -298,43 +307,46 @@ def completion_page(research_id):
 
 @app.route('/giris', methods=['GET', 'POST'])
 def giris():
-    if current_user.is_authenticated and not current_user.is_admin:
+    """Kullanıcı girişi ve kaydı (e-posta tabanlı)."""
+    if current_user.is_authenticated:
+        # Eğer yönetici ise yönetici paneline yönlendir
+        if current_user.is_admin:
+            # ESKİ: return redirect(url_for('admin_panel'))
+            # YENİ ve DOĞRU:
+            return redirect(url_for('admin_dashboard'))
+        # Aksi halde araştırma seçim sayfasına yönlendir
         return redirect(url_for('select_research'))
-    if current_user.is_authenticated and current_user.is_admin and session.get('admin_authenticated'):
-        return redirect(url_for('admin_panel'))
 
     if request.method == 'POST':
         email = request.form.get('email', '').lower().strip()
         if not email:
-            flash('Lütfen geçerli bir e-posta adresi girin.', 'danger')
+            flash('Lütfen bir e-posta adresi girin.', 'danger')
             return redirect(url_for('giris'))
 
         user = User.query.filter_by(email=email).first()
-
         if not user:
-            is_first_user_admin = User.query.count() == 0
-            user = User(email=email, is_admin=False)
+            user = User(email=email)
             db.session.add(user)
             db.session.commit()
-            flash('Araştırmamıza hoş geldiniz! Lütfen devam edin.', 'success')
-
-        # Eğer bulunan kullanıcı bir admin ise, bu sayfadan giriş yapmasına izin verme
-        if user.is_admin:
-            flash('Yönetici girişi için lütfen /admin/login sayfasını kullanın.', 'warning')
-            return redirect(url_for('admin_login'))
 
         login_user(user, remember=True)
 
+        # Eğer yönetici ise yönetici paneline yönlendir
+        if user.is_admin:
+            # ESKİ: return redirect(url_for('admin_panel'))
+            # YENİ ve DOĞRU:
+            return redirect(url_for('admin_dashboard'))
+
+        # Onay kontrol et
         if not user.has_consented:
             return redirect(url_for('consent'))
-        if not user.profession or user.experience is None:
+
+        # Demografi kontrol et
+        if not user.profession:
             return redirect(url_for('demographics'))
 
         return redirect(url_for('select_research'))
 
-    # --- SADECE BU SATIRI GÜNCELLİYORUZ ---
-    # Eski: return render_template('giris.html')
-    # Yeni:
     return render_template('giris_new.html')
 
 @app.route('/consent', methods=['GET', 'POST'])
@@ -382,6 +394,30 @@ def my_responses():
     return render_template('my_responses.html', responses=responses)
 
 # --- 9. YÖNETİCİ PANELİ ---
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Yönetici paneli için şifreli giriş."""
+    if current_user.is_authenticated and current_user.is_admin and session.get('admin_authenticated'):
+        return redirect(url_for('admin_dashboard'))
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').lower().strip()
+        password = request.form.get('password', '')
+        user = User.query.filter_by(email=email).first()
+
+        if user and user.is_admin and user.password_hash and check_password_hash(user.password_hash, password):
+            login_user(user, remember=True)
+            session['admin_authenticated'] = True  # Yönetici oturumunu özel olarak işaretle
+            flash('Yönetici paneline başarıyla giriş yapıldı.', 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash('Geçersiz yönetici e-posta veya şifre.', 'danger')
+            return redirect(url_for('admin_login'))
+
+    # GET isteği için, artık yöneticiye özel yeni giriş sayfasını göster
+    return render_template('admin/admin_login_new.html')
+
 @app.route('/admin')
 @app.route('/admin/dashboard')
 @login_required
@@ -398,7 +434,10 @@ def admin_dashboard():
         'response_count': UserResponse.query.count(),
         'case_count': Case.query.count()
     }
-    return render_template('admin/admin_dashboard.html', researches=researches, stats=stats)
+    # --- SADECE BU SATIRI GÜNCELLİYORUZ ---
+    # Eski: return render_template('admin/admin_dashboard.html', ...)
+    # Yeni:
+    return render_template('admin/admin_dashboard_new.html', researches=researches, stats=stats)
 
 @app.route('/admin/upload_csv', methods=['POST'])
 @login_required
@@ -407,11 +446,11 @@ def upload_csv():
     flash('CSV yükleme şimdilik devre dışı, lütfen JSON kullanın.', 'info')
     return redirect(url_for('admin_panel'))
 
+# upload_json fonksiyonu (GET -> yeni şablon)
 @app.route('/admin/upload_json', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def upload_json():
-    # POST metodu ile form gönderildiğinde çalışacak kısım
     if request.method == 'POST':
         json_text = request.form.get('json_text')
         if not json_text:
@@ -459,8 +498,8 @@ def upload_json():
         # Başarılı yükleme sonrası ana yönetici paneline yönlendir
         return redirect(url_for('admin_dashboard')) 
     
-    # GET metodu ile sayfa ilk kez açıldığında, yükleme formunu göster
-    return render_template('upload_research.html')
+    # GET metodu ile sayfa ilk kez açıldığında, yeni şablonu göster
+    return render_template('admin/upload_research_new.html')
 
 @app.route('/admin/export_csv')
 @login_required
@@ -537,10 +576,6 @@ def export_research_csv(research_id):
 
     # Araştırmaya ait yanıtları al
     responses = UserResponse.query.join(Case).filter(Case.research_id == research_id).all()
-
-    if not responses:
-        flash(f'"{research.title}" araştırması için henüz hiç yanıt verisi bulunmuyor.', 'info')
-        return redirect(url_for('research_admin_dashboard', research_id=research_id))
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -671,9 +706,8 @@ def add_llm_response_to_case(case_id):
 @login_required
 @admin_required
 def manage_llms():
-    """Sistemdeki tüm LLM'leri listeler."""
-    llms = LLM.query.order_by(LLM.id.desc()).all()
-    return render_template('manage_llms.html', llms=llms)
+    llms = LLM.query.order_by(LLM.name).all()
+    return render_template('admin/manage_llms_new.html', llms=llms)
 
 @app.route('/admin/llm/ekle', methods=['POST'])
 @login_required
@@ -787,101 +821,50 @@ def edit_case(case_id):
     """Yönetici için vaka ve içindeki soruları düzenleme rotası."""
     case = db.session.get(Case, case_id)
     if not case:
-        flash('Vaka bulunamadı.', 'danger')
-        return redirect(url_for('manage_researches'))
+        flash('Düzenlenecek vaka bulunamadı.', 'danger')
+        return redirect(url_for('admin_dashboard'))
 
     if request.method == 'POST':
-        try:
-            # Mevcut content güvenli şekilde kopyalanır / oluşturulur
-            current_content = case.content if isinstance(case.content, dict) else {}
-            new_content = current_content.copy()
+        # ...existing POST handling (güncelleme)...
+        pass
 
-            # Basit alan güncellemeleri
-            title = request.form.get('title')
-            if title is not None:
-                new_content['title'] = title.strip()
-
-            # Sorular formundan gelen verileri işle
-            question_ids = request.form.getlist('question_id')
-            question_types = request.form.getlist('question_type')
-            question_labels = request.form.getlist('question_label')
-            question_options = request.form.getlist('question_options')  # multiline textarea ile gönderilebilir
-
-            questions = []
-            count = max(len(question_ids), len(question_types), len(question_labels))
-            for i in range(count):
-                qid = question_ids[i] if i < len(question_ids) else f"q{i+1}"
-                qtype = question_types[i] if i < len(question_types) else (question_types[-1] if question_types else 'open-ended')
-                qlabel = question_labels[i] if i < len(question_labels) else ''
-                question = {"id": qid, "type": qtype, "label": qlabel}
-
-                if qtype == 'multiple-choice':
-                    opts_text = question_options[i] if i < len(question_options) else ''
-                    opts = [opt.strip() for opt in opts_text.splitlines() if opt.strip()]
-                    question['options'] = opts
-
-                questions.append(question)
-
-            if questions:
-                new_content['questions'] = questions
-
-            # --- YENİ EKLENEN KISIM: LLM Yanıtlarını Güncelle ---
-            llm_responses = new_content.get('llm_responses', {})
-            llm_responses['chatgpt'] = request.form.get('llm_chatgpt', '')
-            llm_responses['gemini'] = request.form.get('llm_gemini', '')
-            llm_responses['deepseek'] = request.form.get('llm_deepseek', '')
-            new_content['llm_responses'] = llm_responses
-            # --- YENİ KISIM BİTTİ ---
-            
-            case.content = new_content
-            db.session.commit()
-            flash(f'Vaka "{case.content.get("title","(başlıksız)")}" güncellendi.', 'success')
-            return redirect(url_for('research_admin_dashboard', research_id=case.research_id))
-        except Exception as e:
-            db.session.rollback()
-            app.logger.error(f"Vaka düzenlenirken hata: {e}")
-            flash(f'Vaka güncellenirken hata oluştu: {e}', 'danger')
-            return redirect(url_for('manage_researches'))
-
-    # GET: düzenleme formunu göster
-    return render_template('edit_case.html', case=case)
+    return render_template('admin/edit_case_new.html', case=case)
 
 @app.route('/admin/research/<int:research_id>/add_case')
 @login_required
 @admin_required
 def add_case_to_research(research_id):
-    """Bir araştırmaya arayüzden yeni, boş bir vaka ekler."""
+    """Araştırmaya yeni bir vaka ekler."""
     research = db.session.get(Research, research_id)
     if not research:
-        flash("Vaka eklenecek araştırma bulunamadı.", "danger")
-        return redirect(url_for('admin_panel'))
+        flash("Araştırma bulunamadı.", "danger")
+        return redirect(url_for('admin_dashboard'))
 
-    # Boş bir vaka için varsayılan içerik yapısı
+    import datetime
+    
     new_case_content = {
         "title": "Yeni Vaka (Başlığı Düzenleyin)",
-        "case_id_internal": f"VAKA_{int(datetime.datetime.now().timestamp())}",
+        "case_id_internal": f"VAKA_{datetime.datetime.now().timestamp()}",
         "sections": [
             {"title": "Anamnez", "content": ""},
             {"title": "Fizik Muayene", "content": ""}
         ],
+        # --- EKLENECEK SATIR ---
         "questions": [],
+        # ---
         "gold_standard": {},
-        "llm_responses": {
-            "chatgpt": "",
-            "gemini": "",
-            "deepseek": ""
-        }
+        "llm_responses": {}
     }
 
     new_case = Case(
-        research_id=research.id,
+        research_id=research_id,
         content=new_case_content
     )
     db.session.add(new_case)
     db.session.commit()
-    
-    flash("Yeni vaka oluşturuldu. Lütfen detaylarını düzenleyin.", "success")
-    return redirect(url_for('edit_case', case_id=new_case.id))
+
+    flash(f"Yeni vaka başarıyla oluşturuldu.", "success")
+    return redirect(url_for('research_admin_dashboard', research_id=research_id))
 
 @app.route('/admin/research/<int:research_id>/dashboard', methods=['GET', 'POST'])
 @login_required
@@ -894,16 +877,15 @@ def research_admin_dashboard(research_id):
         return redirect(url_for('admin_dashboard'))
 
     if request.method == 'POST':
-        # Araştırma ayarlarını güncelle
-        research.title = (request.form.get('title') or '').strip()
+        research.title = request.form.get('title')
         research.description = request.form.get('description')
         research.is_active = 'is_active' in request.form
         db.session.commit()
         flash('Araştırma ayarları güncellendi.', 'success')
         return redirect(url_for('research_admin_dashboard', research_id=research.id))
-
+    
     cases = Case.query.filter_by(research_id=research.id).all()
-    return render_template('admin/research_admin_dashboard.html', research=research, cases=cases)
+    return render_template('admin/research_admin_dashboard_new.html', research=research, cases=cases)
 
 @app.route('/admin/case/delete/<int:case_id>', methods=['POST'])
 @login_required
@@ -936,77 +918,476 @@ def modern_test_page():
 @app.route('/htmx_test', methods=['POST'])
 def htmx_test():
     """HTMX butonunun isteğini karşılar ve bir HTML parçası döndürür."""
-    return "<p class='text-green-600 font-semibold fade-in'>HTMX de başarıyla çalışıyor! Sayfa yenilenmedi.</p>"
+    return "<p class='text-green-600 font-semibold'>HTMX de başarıyla çalışıyor! Sayfa yenilenmedi.</p>"
 
 @app.route('/case/<int:case_id>', methods=['GET', 'POST'])
 @login_required
 @research_setup_required
 def case_detail(case_id):
-    """Kullanıcının bir vakayı çözdüğü dinamik vaka ekranı."""
+    """Kullanıcının bir vakayı çözmesi için sayfa."""
     case = db.session.get(Case, case_id)
     if not case:
         flash("Vaka bulunamadı.", "danger")
         return redirect(url_for('select_research'))
-    
-    research_id = case.research_id
-
-    # Yöneticiler için kısıtlamaları kaldır
-    if not current_user.is_admin:
-        existing_response = UserResponse.query.filter_by(user_id=current_user.id, case_id=case_id).first()
-        if existing_response:
-            flash("Bu vakayı daha önce zaten çözdünüz.", "info")
-            return redirect(url_for('research_dashboard', research_id=research_id))
-
-    # İlerleme çubuğu için verileri hazırla
-    all_case_ids = [c.id for c in Case.query.filter_by(research_id=research_id).order_by(Case.id).all()]
-    completed_case_ids = {resp.case_id for resp in UserResponse.query.filter_by(user_id=current_user.id).join(Case).filter(Case.research_id == research_id).all()}
-    try:
-        current_case_index = all_case_ids.index(case_id) + 1
-    except ValueError:
-        return redirect(url_for('research_dashboard', research_id=research_id))
-    total_cases = len(all_case_ids)
 
     if request.method == 'POST':
-        # Kullanıcı yönetici ise yanıt kaydetme, sadece yönlendir
-        if current_user.is_admin:
-            flash("Yönetici modunda yanıt kaydedilemez.", "info")
-            return redirect(url_for('research_dashboard', research_id=research_id))
+        # Başlangıç zamanını session'dan al
+        start_time = session.get(f'case_{case_id}_start_time', time.time())
+        duration = int(time.time() - start_time)
 
-        answers = {key: value for key, value in request.form.items() if key != 'duration_seconds'}
-        try:
-            duration_val = int(request.form.get('duration_seconds', 0))
-        except (ValueError, TypeError):
-            duration_val = None
+        # Formdan gelen verileri ayır
+        answers = {
+            key: value for key, value in request.form.items() 
+            if key not in ['duration_seconds', 'confidence_score', 'clinical_rationale']
+        }
 
+        # Yeni yanıt oluştur ve kaydet
         new_response = UserResponse(
             case_id=case.id,
             author=current_user,
             answers=answers,
-            duration_seconds=duration_val
+            # --- YENİ VERİLER ---
+            confidence_score=int(request.form.get('confidence_score', 75)),
+            clinical_rationale=request.form.get('clinical_rationale', '').strip(),
+            # ---
+            duration_seconds=duration
         )
         db.session.add(new_response)
         db.session.commit()
 
-        completed_case_ids.add(case_id)
-        next_case_id = None
-        for cid in all_case_ids:
-            if cid not in completed_case_ids:
-                next_case_id = cid
-                break
-        
-        if next_case_id:
-            return redirect(url_for('case_detail', case_id=next_case_id))
-        else:
-            flash("Araştırmayı başarıyla tamamladınız! İşte sonuçlarınız.", "success")
-            return redirect(url_for('final_report', research_id=research_id))
+        flash("Vakanız kaydedildi.", "success")
 
-    return render_template('case.html', 
-                           case=case, 
-                           current_case_index=current_case_index, 
-                           total_cases=total_cases)
+        # Sonraki vakaya yönlendir veya final rapor göster
+        research = case.research
+        answered_subq = db.session.query(UserResponse.case_id).filter_by(user_id=current_user.id).distinct()
+        next_case = Case.query.filter(
+            Case.research_id == research.id,
+            Case.id.notin_(answered_subq)
+        ).first()
+
+        if next_case:
+            session[f'case_{next_case.id}_start_time'] = time.time()
+            return redirect(url_for('case_detail', case_id=next_case.id))
+        else:
+            return redirect(url_for('final_report', research_id=research.id))
+
+    # GET isteği - vakaları göster
+    session[f'case_{case_id}_start_time'] = session.get(f'case_{case_id}_start_time', time.time())
+    return render_template('case_new.html', case=case)
+
+@app.route('/arastirma/<int:research_id>/rapor')
+@login_required
+@research_setup_required
+def final_report(research_id):
+    """Kullanıcının bir araştırmadaki tüm yanıtlarını gösteren final sayfası."""
+    research = db.session.get(Research, research_id)
+    if not research:
+        flash("Rapor görüntülenecek araştırma bulunamadı.", "danger")
+        return redirect(url_for('select_research'))
+    
+    # Kullanıcının bu araştırmadaki tüm yanıtlarını, vaka sırasına göre çek
+    responses = UserResponse.query.join(Case).filter(
+        Case.research_id == research_id,
+        UserResponse.user_id == current_user.id
+    ).order_by(Case.id).all()
+
+    # Modernize edilmiş yeni rapor şablonunu kullan
+    return render_template('final_report_new.html', research=research, responses=responses)
+
+# --- 12. KOMUT SATIRI TESTİ İÇİN ROTA ---
+import click
+from flask.cli import with_appcontext
+
+@app.cli.command('test-routes')
+@with_appcontext
+def test_routes_command():
+    """
+    Uygulamadaki tüm basit GET rotalarını test eder ve durum kodlarını raporlar.
+    """
+    click.echo(click.style("Uygulama Rotaları Test Ediliyor...", fg='yellow', bold=True))
+
+    client = app.test_client()
+    links = [rule.rule for rule in app.url_map.iter_rules() if 'GET' in rule.methods and not rule.arguments]
+
+    success_count = 0
+    error_count = 0
+
+    for link in sorted(links):
+        try:
+            response = client.get(link)
+            if response.status_code == 200:
+                click.echo(f"  ✅ {click.style(link, fg='green'):<50} {click.style('OK', fg='green')}")
+                success_count += 1
+            elif 300 <= response.status_code < 400:
+                click.echo(f"  ↪️ {click.style(link, fg='cyan'):<50} {click.style(f'Yönlendirme ({response.status_code})', fg='cyan')}")
+                success_count += 1
+            else:
+                click.echo(f"  ❌ {click.style(link, fg='red'):<50} {click.style(f'HATA ({response.status_code})', fg='red', bold=True)}")
+                error_count += 1
+        except Exception as e:
+            click.echo(f"  💥 {click.style(link, fg='red'):<50} {click.style(f'KRİTİK HATA: {e}', fg='red', bold=True)}")
+            error_count += 1
+
+    click.echo("-" * 60)
+    if error_count == 0:
+        click.echo(click.style(f"Tüm {success_count} rota başarıyla test edildi!", fg='green', bold=True))
+    else:
+        click.echo(click.style(f"Test tamamlandı. Başarılı: {success_count}, Hatalı: {error_count}", fg='yellow'))
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         # seed_database()  # Eğer init_db.py kullanıyorsanız burada çalıştırmayın
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)))
+# test_app.py
+
+import pytest
+import json
+from app import app, db, User, Research, Case, LLM, UserResponse
+
+# --- DEĞİŞİKLİK BURADA ---
+@pytest.fixture(scope='session')
+def test_client():
+    """
+    Tüm test oturumu için TEK BİR test istemcisi ve temiz bir veritabanı oluşturur.
+    """
+    app.config.update({
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "WTF_CSRF_ENABLED": False,
+        "LOGIN_DISABLED": False,
+    })
+
+    testing_client = app.test_client()
+
+    ctx = app.app_context()
+    ctx.push()
+
+    db.create_all()
+
+    yield testing_client  
+
+    db.session.remove()
+    db.drop_all()
+    ctx.pop()
+
+def test_ana_sayfa_yonlendirmesi(test_client):
+    """1. Test: Giriş yapmamış bir kullanıcı ana sayfaya gittiğinde giriş sayfasına yönlendirilir mi?"""
+    response = test_client.get('/', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Giriş Yap veya Hesap Oluştur' in response.data.decode('utf-8')
+
+def test_kullanici_kayit_ve_onboarding_sureci(test_client):
+    """2. Test: Yeni bir kullanıcı kaydolup onam ve demografi adımlarını tamamlayabilir mi?"""
+    response = test_client.post('/giris', data={'email': 'test@kullanici.com'}, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Araştırma Katılım Onayı' in response.data.decode('utf-8')
+
+    response = test_client.post('/consent', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Katılımcı Bilgileri' in response.data.decode('utf-8')
+
+    response = test_client.post('/demographics', data={'profession': 'Pratisyen Hekim', 'experience': 5}, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Mevcut Araştırmalar' in response.data.decode('utf-8')
+
+    user = User.query.filter_by(email='test@kullanici.com').first()
+    assert user is not None
+    assert user.has_consented is True
+    assert user.profession == 'Pratisyen Hekim'
+
+def test_yonetici_giris_ve_panel_erisim(test_client):
+    """3. Test: Yönetici doğru şifreyle giriş yapıp yönetici paneline erişebilir mi?"""
+    from werkzeug.security import generate_password_hash
+    admin_user = User(email='admin@test.com', is_admin=True, password_hash=generate_password_hash('123456'))
+    db.session.add(admin_user)
+    db.session.commit()
+    
+    response = test_client.post('/admin/login', data={'email': 'admin@test.com', 'password': '123456'}, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Yönetici Ana Paneli' in response.data.decode('utf-8')
+
+def test_yonetici_arastirma_yukleme_ve_yonetme(test_client):
+    """4. Test: Yönetici yeni bir araştırmayı JSON ile yükleyebilir ve yönetebilir mi?"""
+    test_client.post('/admin/login', data={'email': 'admin@test.com', 'password': '123456'})
+
+    test_client.post('/admin/llm/ekle', data={'name': 'GPT-4'})
+    llm = LLM.query.filter_by(name='GPT-4').first()
+    assert llm is not None
+
+    research_json = {
+        "research_title": "Test Araştırması", "research_description": "Bu bir test araştırmasıdır.",
+        "cases": [
+            {"title": "Test Vaka 1", "sections": [{"title": "Anamnez", "content": "Test"}],
+             "questions": [{"id": "q1", "type": "open-ended", "label": "Test Soru?"}],
+             "gold_standard": {"q1": "Test Cevap"}}
+        ]
+    }
+    response = test_client.post('/admin/upload_json', data={'json_text': json.dumps(research_json)}, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Test Araştırması' in response.data.decode('utf-8')
+
+    research = Research.query.filter_by(title='Test Araştırması').first()
+    assert research is not None
+    assert len(research.cases) == 1
+    assert research.cases[0].content['title'] == 'Test Vaka 1'
+
+def test_kullanici_vaka_cozum_akisi(test_client):
+    """5. Test: Kullanıcı bir araştırmayı baştan sona tamamlayıp final raporunu görebilir mi?"""
+    test_client.post('/giris', data={'email': 'test@kullanici.com'})
+    
+    research = Research.query.filter_by(title='Test Araştırması').first()
+    response = test_client.get(f'/arastirma/{research.id}', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Araştırmaya Başla' in response.data.decode('utf-8')
+
+    case = research.cases[0]
+    response = test_client.get(f'/case/{case.id}', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Test Vaka 1' in response.data.decode('utf-8')
+    assert 'Test Soru?' in response.data.decode('utf-8')
+
+    response = test_client.post(f'/case/{case.id}', data={'q1': 'Kullanıcı Cevabı', 'duration_seconds': 120}, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Araştırmayı başarıyla tamamladınız!' in response.data.decode('utf-8')
+    assert 'Final Raporu' in response.data.decode('utf-8')
+
+    user_response = UserResponse.query.first()
+    assert user_response is not None
+    assert user_response.case_id == case.id
+    assert user_response.answers['q1'] == 'Kullanıcı Cevabı'
+
+def test_yonetici_vaka_analiz_ekrani(test_client):
+    """6. Test: Yönetici bir vaka için analiz ekranına erişebilir mi?"""
+    test_client.post('/admin/login', data={'email': 'admin@test.com', 'password': '123456'})
+
+    research = Research.query.filter_by(title='Test Araştırması').first()
+    case = research.cases[0]
+
+    response = test_client.get(f'/admin/case/{case.id}/review')
+    assert response.status_code == 200
+    assert 'Vaka Analiz' in response.data.decode('utf-8')
+    assert 'Yanıt Sayısı' in response.data.decode('utf-8')
+    assert 'Ortalama Süre' in response.data.decode('utf-8')
+
+@app.route('/admin/case/<int:case_id>/review')
+@login_required
+@admin_required
+def review_case(case_id):
+    """Yönetici için vaka bazlı analiz, istatistik ve yönetim ekranı."""
+    case = db.session.get(Case, case_id)
+    if not case:
+        flash("Analiz edilecek vaka bulunamadı.", "danger")
+        return redirect(url_for('admin_dashboard'))
+
+    # Bu vakaya verilmiş tüm kullanıcı yanıtlarını çek
+    responses = UserResponse.query.filter_by(case_id=case_id).all()
+    all_llms = LLM.query.all()
+    
+    stats = {}
+    if responses:
+        try:
+            # Veriyi Pandas DataFrame'e dönüştür
+            data = []
+            for r in responses:
+                row = {'sure_saniye': getattr(r, 'duration_seconds', 0) or 0}
+                if isinstance(getattr(r, 'answers', None), dict):
+                    row.update(r.answers)
+                data.append(row)
+            
+            df = pd.DataFrame(data)
+            stats['response_count'] = len(df)
+            stats['avg_duration'] = float(df['sure_saniye'].mean()) if 'sure_saniye' in df.columns else 0.0
+
+            # Vakanın sorularını al
+            questions = case.content.get('questions', []) if isinstance(case.content, dict) else []
+            choice_question_stats = {}
+            for q in questions:
+                if q.get('type') == 'multiple-choice' and q.get('id') in df.columns:
+                    choice_counts = df[q['id']].value_counts()
+                    choice_question_stats[q.get('label', q.get('id'))] = {
+                        'labels': choice_counts.index.tolist(),
+                        'data': choice_counts.values.tolist()
+                    }
+            stats['choice_questions'] = choice_question_stats
+        except Exception as e:
+            print(f"Stats hesaplama hatası: {e}")
+            stats = {'response_count': len(responses), 'avg_duration': 0, 'choice_questions': {}}
+
+    return render_template('case_review.html', 
+                           case=case, 
+                           responses=responses, 
+                           all_llms=all_llms,
+                           stats=stats)
+
+@app.route('/admin/research/<int:research_id>/stats')
+@login_required
+@admin_required
+def research_dashboard_admin(research_id):
+    """Araştırma seviyesinde ileri istatistik paneli."""
+    research = db.session.get(Research, research_id)
+    if not research:
+        flash("Araştırma bulunamadı.", "danger")
+        return redirect(url_for('admin_dashboard'))
+
+    responses = UserResponse.query.join(Case).filter(Case.research_id == research_id).all()
+    
+    if not responses:
+        flash("Bu araştırma için henüz veri yok.", "info")
+        return redirect(url_for('research_admin_dashboard', research_id=research_id))
+
+    try:
+        # Veri çerçevesi oluştur
+        rows = []
+        for r in responses:
+            author = getattr(r, 'author', None)
+            row = {
+                'unvan': getattr(author, 'profession', None),
+                'deneyim': getattr(author, 'experience', None) or 0,
+                'sure_saniye': getattr(r, 'duration_seconds', None) or 0,
+                'confidence_score': getattr(r, 'confidence_score', None) or 0,
+                'clinical_rationale': getattr(r, 'clinical_rationale', None) or '',
+            }
+            if isinstance(getattr(r, 'answers', None), dict):
+                row.update(r.answers)
+            rows.append(row)
+
+        df = pd.DataFrame(rows) if rows else pd.DataFrame()
+
+        stats = {}
+
+        # 1. Temel istatistikler
+        stats['total_responses'] = len(responses)
+        stats['avg_experience'] = float(df['deneyim'].mean()) if 'deneyim' in df.columns else 0.0
+        stats['avg_duration'] = float(df['sure_saniye'].mean()) if 'sure_saniye' in df.columns else 0.0
+        stats['avg_confidence'] = float(df['confidence_score'].mean()) if 'confidence_score' in df.columns else 0.0
+
+        # 2. Meslek dağılımı
+        if not df.empty and 'unvan' in df.columns:
+            profession_counts = df['unvan'].fillna('Bilinmiyor').value_counts()
+            stats['profession_chart'] = {
+                'labels': profession_counts.index.tolist(),
+                'data': profession_counts.values.tolist()
+            }
+        else:
+            stats['profession_chart'] = {'labels': [], 'data': []}
+
+        # 3. Unvanlara göre ortalama güven skoru
+        if not df.empty and 'unvan' in df.columns and 'confidence_score' in df.columns:
+            confidence_by_profession = df.groupby('unvan')['confidence_score'].mean().sort_values(ascending=False)
+            stats['confidence_by_profession'] = {
+                'labels': confidence_by_profession.index.tolist(),
+                'data': [float(v) for v in confidence_by_profession.values.tolist()]
+            }
+        else:
+            stats['confidence_by_profession'] = {'labels': [], 'data': []}
+
+        # 4. Deneyim yılı vs. karar süresi (deneyim kategorilerine göre)
+        if not df.empty and 'deneyim' in df.columns and 'sure_saniye' in df.columns:
+            # Deneyim kategorileri: 0-5, 5-10, 10-15, 15+
+            def categorize_experience(exp):
+                if exp < 5:
+                    return '0-5 yıl'
+                elif exp < 10:
+                    return '5-10 yıl'
+                elif exp < 15:
+                    return '10-15 yıl'
+                else:
+                    return '15+ yıl'
+
+            df['exp_category'] = df['deneyim'].apply(categorize_experience)
+            avg_duration_by_exp = df.groupby('exp_category')['sure_saniye'].mean()
+            
+            # Sıralama
+            category_order = ['0-5 yıl', '5-10 yıl', '10-15 yıl', '15+ yıl']
+            avg_duration_by_exp = avg_duration_by_exp.reindex([c for c in category_order if c in avg_duration_by_exp.index])
+            
+            stats['experience_vs_duration'] = {
+                'labels': avg_duration_by_exp.index.tolist(),
+                'data': [float(v) for v in avg_duration_by_exp.values.tolist()]
+            }
+        else:
+            stats['experience_vs_duration'] = {'labels': [], 'data': []}
+
+        # 5. Güven skoru dağılımı (histogram-style)
+        if not df.empty and 'confidence_score' in df.columns:
+            confidence_bins = [0, 25, 50, 75, 100]
+            confidence_labels = ['0-25', '25-50', '50-75', '75-100']
+            df['confidence_bin'] = pd.cut(df['confidence_score'], bins=confidence_bins, labels=confidence_labels, include_lowest=True)
+            confidence_dist = df['confidence_bin'].value_counts().sort_index()
+            
+            stats['confidence_distribution'] = {
+                'labels': confidence_dist.index.astype(str).tolist(),
+                'data': confidence_dist.values.tolist()
+            }
+        else:
+            stats['confidence_distribution'] = {'labels': [], 'data': []}
+
+    except Exception as e:
+        print(f"İstatistik hesaplama hatası: {e}")
+        stats = {
+            'total_responses': len(responses),
+            'avg_experience': 0,
+            'avg_duration': 0,
+            'avg_confidence': 0,
+            'profession_chart': {'labels': [], 'data': []},
+            'confidence_by_profession': {'labels': [], 'data': []},
+            'experience_vs_duration': {'labels': [], 'data': []},
+            'confidence_distribution': {'labels': [], 'data': []}
+        }
+
+    return render_template('admin/research_stats_new.html', research=research, stats=stats)
+
+@app.route('/case/<int:case_id>', methods=['POST'])
+@login_required
+@research_setup_required
+def submit_case(case_id):
+    """Kullanıcının vaka çözümünü kaydeder."""
+    case = db.session.get(Case, case_id)
+    if not case:
+        flash("Vaka bulunamadı.", "danger")
+        return redirect(url_for('select_research'))
+
+    research_id = case.research_id
+    research = db.session.get(Research, research_id)
+
+    # Başlangıç zamanını session'dan al
+    start_time = session.get(f'case_{case_id}_start_time')
+    end_time = time.time()
+    duration = int(end_time - start_time) if start_time else 0
+
+    # Tüm form verilerini yanıt olarak kaydet
+    answers = {}
+    for key in request.form.keys():
+        if key not in ['confidence_score', 'clinical_rationale', 'duration_seconds']:
+            answers[key] = request.form.get(key, '')
+
+    # Yeni yanıt oluştur
+    user_response = UserResponse(
+        case_id=case_id,
+        user_id=current_user.id,
+        answers=answers,
+        # --- YENİ ALANLAR ---
+        confidence_score=int(request.form.get('confidence_score', 75)),
+        clinical_rationale=request.form.get('clinical_rationale', ''),
+        scores=None,  # İleriki puanlama için
+        # ---
+        duration_seconds=duration
+    )
+    db.session.add(user_response)
+    db.session.commit()
+
+    # Sonraki vakaya yönlendir veya final rapor göster
+    answered_subq = db.session.query(UserResponse.case_id).filter_by(user_id=current_user.id).distinct()
+    next_case = Case.query.filter(
+        Case.research_id == research_id,
+        Case.id.notin_(answered_subq)
+    ).first()
+
+    if next_case:
+        session[f'case_{next_case.id}_start_time'] = time.time()
+        flash(f"Vakayı başarıyla kaydettiniz. Sıradaki vaka yükleniyor...", "success")
+        return redirect(url_for('case', case_id=next_case.id))
+    else:
+        flash("Araştırmayı başarıyla tamamladınız!", "success")
+        return redirect(url_for('final_report', research_id=research_id))

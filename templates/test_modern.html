@@ -1,0 +1,20 @@
+{% extends "layout_new.html" %}
+
+{% block title %}Modern Arayüz Testi{% endblock %}
+
+{% block content %}
+    <div class="bg-white p-8 rounded-xl shadow-lg max-w-md mx-auto">
+        <h1 class="text-2xl font-bold text-slate-900 mb-2">Modern Arayüz Testi Başarılı!</h1>
+        <p class="text-slate-600 mb-6">Eğer bu kartı modern bir tasarımla görüyorsanız, Tailwind CSS doğru bir şekilde çalışıyor demektir.</p>
+        
+        <div id="htmx-target" class="border-t pt-6">
+            <button 
+                hx-post="{{ url_for('htmx_test') }}"
+                hx-target="#htmx-target"
+                hx-swap="innerHTML"
+                class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition duration-200">
+                HTMX Testi için Tıkla
+            </button>
+        </div>
+    </div>
+{% endblock %}

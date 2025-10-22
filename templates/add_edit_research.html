@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+
+{# 'research' değişkeni varsa Düzenleme, yoksa Ekleme modunda #}
+{% set page_title = "Araştırma Düzenle" if research else "Yeni Araştırma Ekle" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <section class="content-card">
+        <h2>{{ page_title }}</h2>
+        <form method="POST">
+            <div class="form-grup">
+                <label for="title">Araştırma Başlığı</label>
+                <input type="text" id="title" name="title" value="{{ research.title if research else (title or '') }}" required placeholder="Örn: Pnömoni Tanısında Hekim-LLM Karşılaştırması">
+            </div>
+            <div class="form-grup">
+                <label for="description">Araştırma Açıklaması (Kullanıcıya gösterilecek)</label>
+                <textarea id="description" name="description" rows="3" placeholder="Bu araştırma, toplum kökenli pnömoni vakalarında...">{{ research.description if research else (description or '') }}</textarea>
+            </div>
+            
+            {# Sadece düzenleme modunda 'Aktif/Pasif' seçeneğini göster #}
+            {% if research %}
+            <div class="form-grup" style="display: flex; align-items: center; gap: 1rem;">
+                <input type="checkbox" id="is_active" name="is_active" {% if research.is_active %}checked{% endif %} style="width: auto;">
+                <label for="is_active" style="margin: 0;">Bu araştırma kullanıcılar için aktif olsun</label>
+            </div>
+            {% endif %}
+
+            <button type="submit">{{ "Değişiklikleri Kaydet" if research else "Araştırmayı Oluştur" }}</button>
+        </form>
+    </section>
+
+    {% if research %}
+    <section class="content-card" style="margin-top: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>Bu Araştırmaya Ait Vakalar ({{ cases|length }})</h3>
+            <a href="{{ url_for('add_case_to_research', research_id=research.id) }}" class="button" style="width: auto; margin-bottom: 1rem;">
+                + Bu Araştırmaya Vaka Ekle
+            </a>
+        </div>
+
+        <p class="subtitle">Vakaları düzenlemek için başlığına tıklayın.</p>
+        
+        {% if cases %}
+            <div class="case-list">
+                {% for case in cases %}
+                <div class="case-list-item" style="display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; padding: 1.25rem; border: 1px solid var(--border-color); border-radius: 0.5rem; margin-bottom: 1rem; align-items: center;">
+                    <div>
+                        <strong>{{ case.content.title or 'Başlıksız Vaka' }}</strong>
+                        <small style="display: block; color: var(--light-text-color);">Soru Sayısı: {{ case.content.questions | length }}</small>
+                    </div>
+
+                    <a href="{{ url_for('review_case', case_id=case.id) }}" class="button-sm" style="background-color: var(--info-color);">Analiz Et</a>
+
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <a href="{{ url_for('edit_case', case_id=case.id) }}" class="button-sm">Düzenle</a>
+                        <form action="{{ url_for('delete_case', case_id=case.id) }}" method="POST" onsubmit="return confirm('Bu vakayı ve ona ait tüm kullanıcı yanıtlarını kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.');" style="margin:0;">
+                            <button type="submit" class="button-sm" style="background-color: var(--danger-color); border-color: var(--danger-color);">Sil</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>Bu araştırma için henüz vaka yüklenmemiş. Lütfen ana yönetici panelindeki JSON Yükleme modülünü kullanın.</p>
+        {% endif %}
+    </section>
+
+    <section class="content-card" style="margin-top: 2rem;">
+        <h3>Veri Dışa Aktarma</h3>
+        <p class="subtitle">Sadece bu araştırmaya verilen tüm yanıtları içeren özel CSV dosyasını indirin.</p>
+        <div class="actions" style="display: flex; gap: 1rem;">
+            <a href="{{ url_for('research_dashboard_admin', research_id=research.id) }}" class="button" style="background-color: var(--success-color);">
+                İstatistik Panelini Görüntüle
+            </a>
+            <a href="{{ url_for('export_research_csv', research_id=research.id) }}" class="button">
+                Veri Setini İndir (.csv)
+            </a>
+        </div>
+    </section>
+
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ research.title }}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <section class="content-card" style="text-align: center;">
+        <h2>{{ research.title }}</h2>
+        <p class="subtitle" style="font-size: 1.1rem; margin-bottom: 1rem;">{{ research.description }}</p>
+        <div class="score-card" style="margin-bottom: 2rem;">
+            <h3>Bu araştırmada sizi <strong>{{ total_cases - completed_count }} vaka</strong> bekliyor.</h3>
+            <p class="reasoning">Katkılarınız için şimdiden teşekkür ederiz!</p>
+        </div>
+        {% if next_case_id %}
+            <a href="{{ url_for('case_detail', case_id=next_case_id) }}" class="button">
+                {% if completed_count > 0 %}
+                    Araştırmaya Devam Et
+                {% else %}
+                    Araştırmaya Başla
+                {% endif %}
+            </a>
+        {% else %}
+             <p>Bu araştırmayı zaten tamamladınız.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

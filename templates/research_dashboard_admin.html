@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+
+{% block title %}İstatistik Paneli: {{ research.title }}{% endblock %}
+
+{% block content %}
+<section class="content-card">
+    <h2>İstatistik Paneli: {{ research.title }}</h2>
+    <p class="subtitle">Bu sayfadaki veriler, yeni yanıtlar eklendikçe otomatik olarak güncellenir.</p>
+</section>
+
+<div class="score-breakdown">
+    <div class="score-item"><h4>Ort. Çözüm Süresi</h4><p class="score-value">{{ "%.1f"|format(stats.avg_duration) }} sn</p></div>
+    <div class="score-item"><h4>Ort. Mesleki Deneyim</h4><p class="score-value">{{ "%.1f"|format(stats.avg_experience) }} yıl</p></div>
+</div>
+
+<div class="upload-container">
+    <section class="content-card">
+        <h4>Katılımcı Unvan Dağılımı</h4>
+        <canvas id="professionChart"></canvas>
+    </section>
+
+    {% for key, chart_data in stats.choice_questions.items() %}
+    <section class="content-card">
+        <h4>Soru Yanıt Dağılımı ({{ key }})</h4>
+        <canvas id="chart-{{ key }}"></canvas>
+    </section>
+    {% endfor %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // Python'dan gelen verileri JavaScript'e güvenli bir şekilde aktar
+    const stats = {{ stats | tojson }};
+
+    // Unvan Dağılımı Grafiği (Pie Chart)
+    const profCtx = document.getElementById('professionChart');
+    new Chart(profCtx, {
+        type: 'pie',
+        data: {
+            labels: stats.profession_chart.labels,
+            datasets: [{
+                label: 'Katılımcı Sayısı',
+                data: stats.profession_chart.data,
+                backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#6B7280']
+            }]
+        }
+    });
+
+    // Çoktan Seçmeli Soru Grafikleri (Bar Chart)
+    for (const [key, chartData] of Object.entries(stats.choice_questions)) {
+        const choiceCtx = document.getElementById(`chart-${key}`);
+        new Chart(choiceCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'Yanıt Sayısı',
+                    data: chartData.data,
+                    backgroundColor: '#3B82F6'
+                }]
+            },
+            options: { indexAxis: 'y' } // Yatay barlar için
+        });
+    }
+</script>
+{% endblock %}

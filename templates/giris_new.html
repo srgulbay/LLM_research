@@ -1,0 +1,39 @@
+{% extends "layout_new.html" %}
+
+{% block title %}Giriş Yap / Kayıt Ol{% endblock %}
+
+{% block content %}
+<div class="fade-in max-w-lg mx-auto">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                {% set bg_color = 'bg-blue-100 border-blue-500 text-blue-700' if category == 'info' else 'bg-green-100 border-green-500 text-green-700' if category == 'success' else 'bg-red-100 border-red-500 text-red-700' %}
+                <div class="border-l-4 p-4 rounded-md shadow-sm mb-6 {{ bg_color }}" role="alert">
+                    <p>{{ message }}</p>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="bg-white p-8 rounded-xl shadow-lg">
+        <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-slate-900">Giriş Yap veya Hesap Oluştur</h2>
+            <p class="text-slate-500 mt-2">Sadece e-posta adresinizi girmeniz yeterli. Hesabınız yoksa sizin için otomatik olarak oluşturulacaktır.</p>
+        </div>
+        
+        <form method="POST">
+            <div class="mb-4">
+                <label for="email" class="block text-sm font-semibold text-slate-700 mb-2">E-posta Adresiniz</label>
+                <input type="email" id="email" name="email" required placeholder="ornek@eposta.com"
+                       class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+            </div>
+            
+            <button type="submit" 
+                    class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition duration-200">
+                Devam Et
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

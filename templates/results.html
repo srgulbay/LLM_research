@@ -98,6 +98,44 @@
     </div>
 </section>
 
+{% if current_user.is_admin %}
+<section class="content-card" style="margin-top: 2rem;">
+    <h2>Yönetici Araçları</h2>
+    <div class="actions" style="display: flex; gap: 1rem;">
+        <button id="add-llm-response-btn" class="button" style="background-color: var(--success-color);">LLM Yanıtı Ekle</button>
+        <button id="show-stats-btn" class="button">Vaka İstatistiklerini Göster</button>
+    </div>
+    <div id="stats-container" style="margin-top: 1.5rem; display: none;">
+    </div>
+</section>
+{% endif %}
+
+<div id="llm-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);">
+    <div class="form-container" style="margin-top: 10%;">
+        <section class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>LLM Yanıtı Ekle</h2>
+                <button id="close-modal-btn" style="background: none; border: none; font-size: 2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="llm-response-form">
+                <div class="form-grup">
+                    <label for="llm_name">Yapay Zeka Modeli</label>
+                    <select id="llm_name" name="llm_name" required>
+                        {% for llm in all_llms %}
+                        <option value="{{ llm.name }}">{{ llm.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-grup">
+                    <label for="response_text">Modelin Yanıtı</label>
+                    <textarea id="response_text" name="response_text" rows="4" required></textarea>
+                </div>
+                <button type="submit">Yanıtı Kaydet</button>
+            </form>
+        </section>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Gerekli DOM elementlerini seç
@@ -167,6 +205,53 @@
                     statusMessageEl.style.color = '#EF4444';
                 });
         }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!{{ current_user.is_admin | tojson }}) return;
+
+        const modal = document.getElementById('llm-modal');
+        const addBtn = document.getElementById('add-llm-response-btn');
+        const closeBtn = document.getElementById('close-modal-btn');
+        const form = document.getElementById('llm-response-form');
+        const caseId = {{ user_response.case.id }};
+
+        addBtn.onclick = () => { modal.style.display = 'block'; }
+        closeBtn.onclick = () => { modal.style.display = 'none'; }
+        window.onclick = (event) => {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const llmName = document.getElementById('llm_name').value;
+            const responseText = document.getElementById('response_text').value;
+
+            fetch(`/api/case/${caseId}/add_llm_response`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ llm_name: llmName, response_text: responseText })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Başarılı: ' + data.message);
+                    modal.style.display = 'none';
+                    form.reset();
+                    location.reload();
+                } else {
+                    alert('Hata: ' + data.message);
+                }
+            });
+        });
+
+        document.getElementById('show-stats-btn').addEventListener('click', function() {
+            const statsContainer = document.getElementById('stats-container');
+            statsContainer.style.display = 'block';
+            statsContainer.innerHTML = '<p>Vaka bazlı istatistik özelliği yakında eklenecektir...</p>';
+        });
     });
 </script>
 {% endblock %}

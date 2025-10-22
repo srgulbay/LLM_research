@@ -12,12 +12,12 @@
 <body>
     <nav class="navbar">
         <div class="container nav-container">
-            <a href="{{ url_for('index') }}" class="nav-brand">LLM_Research</a>
+            <a href="{{ url_for('select_research') }}" class="nav-brand">LLM_Research</a>
             <div class="nav-links">
                 {% if current_user.is_authenticated %}
                     {# Kullanıcı giriş yapmışsa gösterilecek linkler #}
                     {% if current_user.is_admin %}
-                        <a href="{{ url_for('admin_panel') }}">Yönetici</a>
+                        <a href="{{ url_for('admin_dashboard') }}">Yönetici</a>
                     {% endif %}
                     <a href="{{ url_for('my_responses') }}">Yanıtlarım</a>
                     <a href="{{ url_for('logout') }}">Çıkış Yap</a>

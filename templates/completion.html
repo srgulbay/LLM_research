@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+
+{% block title %}Araştırma Tamamlandı{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <section class="content-card" style="text-align: center;">
+        <h2>Teşekkür Ederiz!</h2>
+        <p class="subtitle" style="font-size: 1.2rem; margin-bottom: 2rem;">
+            <strong>"{{ research.title }}"</strong> başlıklı araştırmaya katılımınız ve bilime yaptığınız katkı için çok teşekkür ederiz.
+        </p>
+        <a href="{{ url_for('select_research') }}" class="button" style="width: auto;">
+            Diğer Araştırmalara Göz At
+        </a>
+    </section>
+</div>
+{% endblock %}

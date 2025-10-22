@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+    /* Yönetici paneline özel stiller */
+    .admin-wrapper { display: grid; grid-template-columns: 240px 1fr; gap: 2rem; }
+    .admin-sidebar { background-color: var(--card-background-color); border-radius: var(--border-radius); padding: 1.5rem; border: 1px solid var(--border-color); height: fit-content; }
+    .admin-sidebar a { display: block; padding: 0.75rem 1rem; text-decoration: none; color: var(--secondary-color); font-weight: 600; border-radius: 0.5rem; margin-bottom: 0.5rem; }
+    .admin-sidebar a.active, .admin-sidebar a:hover { background-color: #F0F9FF; color: var(--primary-color); }
+    .admin-main-content .content-card:first-child { margin-top: 0; }
+</style>
+
+<div class="admin-wrapper">
+    <aside class="admin-sidebar">
+        <h3 style="margin-top: 0; padding: 0 1rem;">Yönetim</h3>
+        <a href="{{ url_for('admin_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_dashboard' else '' }}">Ana Panel</a>
+        <a href="{{ url_for('upload_json') }}" class="{{ 'active' if request.endpoint == 'upload_json' else '' }}">+ Yeni Araştırma Yükle</a>
+        
+        <hr class="form-divider">
+        
+        <h3 style="padding: 0 1rem;">Sistem</h3>
+        <a href="{{ url_for('manage_llms') }}" class="{{ 'active' if request.endpoint == 'manage_llms' else '' }}">LLM Modelleri</a>
+        <a href="{{ url_for('export_csv') }}" class="{{ 'active' if request.endpoint == 'export_csv' else '' }}">Tüm Veriyi İndir</a>
+    </aside>
+
+    <main class="admin-main-content">
+        {% block admin_content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}

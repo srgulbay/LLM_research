@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block title %}Yapay Zeka Modellerini Yönet{% endblock %}
+{% block content %}
+<div class="upload-container">
+    <section class="content-card">
+        <h2>Yeni Model Ekle</h2>
+        <form action="{{ url_for('add_llm') }}" method="POST">
+            <div class="form-grup">
+                <label for="name">Model Adı (Örn: GPT-4, Llama3)</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-grup">
+                <label for="description">Açıklama (İsteğe bağlı)</label>
+                <input type="text" id="description" name="description">
+            </div>
+            <button type="submit">Modeli Ekle</button>
+        </form>
+    </section>
+    <section class="content-card">
+        <h2>Mevcut Modeller</h2>
+        <div class="tablo-container">
+            <table>
+                <thead><tr><th>ID</th><th>Model Adı</th></tr></thead>
+                <tbody>
+                    {% for llm in llms %}
+                    <tr><td>{{ llm.id }}</td><td><strong>{{ llm.name }}</strong></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

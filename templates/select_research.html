@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+
+{% block title %}Araştırma Seçimi{% endblock %}
+
+{% block content %}
+<section class="content-card">
+    <h2>Mevcut Araştırmalar</h2>
+    <p class="subtitle">Lütfen katılmak istediğiniz araştırmayı seçin.</p>
+    
+    <div class="case-list">
+        {# Backend'den gelen her bir araştırma için bir link oluştur #}
+        {% for research in researches %}
+            <a href="{{ url_for('research_dashboard', research_id=research.id) }}">
+                <span>
+                    <strong>{{ research.title }}</strong>
+                    <br>
+                    <small style="color: var(--light-text-color); font-weight: 400;">{{ research.description }}</small>
+                </span>
+                <span>&#8594;</span>
+            </a>
+        {% else %}
+            {# Eğer sistemde hiç araştırma yoksa bu mesajı göster #}
+            <p>Sistemde şu anda aktif bir araştırma bulunmuyor. Lütfen daha sonra tekrar kontrol edin.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

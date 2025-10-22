@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+{% block title %}Final Raporu: {{ research.title }}{% endblock %}
+
+{% block content %}
+<section class="content-card">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h2>Araştırmayı Tamamladınız!</h2>
+        <p class="subtitle" style="font-size: 1.2rem;">
+            <strong>"{{ research.title }}"</strong> başlıklı araştırmaya katılımınız için çok teşekkür ederiz.<br>
+            İşte yanıtlarınızın altın standart ve yapay zeka modelleriyle karşılaştırması:
+        </p>
+    </div>
+
+    {% for response in responses %}
+    <div class="content-card" style="margin-bottom: 2rem; border-left: 5px solid var(--primary-color);">
+        <h3 style="margin-top:0;">Vaka: {{ response.case.content.title }}</h3>
+        
+        <div class="tablo-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Kriter</th>
+                        <th class="user-response-header" style="width: 40%;">Sizin Yanıtınız</th>
+                        <th style="width: 40%;">Altın Standart / LLM Yanıtları</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in response.case.content.questions %}
+                        {% set question_id = q.id %}
+                        <tr>
+                            <td><strong>{{ q.label }}</strong></td>
+                            <td>{{ response.answers.get(question_id, 'Yanıt verilmemiş') }}</td>
+                            <td>
+                                <strong style="color: var(--success-color);">Doğru Yanıt:</strong> {{ response.case.content.gold_standard.get(question_id, 'N/A') }}
+                                <hr style="margin: 0.5rem 0;">
+                                {% for llm_name, llm_answer in response.case.content.get('llm_responses', {}).items() %}
+                                    <strong>{{ llm_name | capitalize }}:</strong> {{ llm_answer }}<br>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div style="text-align: center; margin-top: 2rem;">
+        <a href="{{ url_for('select_research') }}" class="button">Diğer Araştırmalara Göz At</a>
+    </div>
+</section>
+{% endblock %}

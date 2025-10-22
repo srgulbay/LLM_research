@@ -3,67 +3,65 @@
 {% block title %}Yönetici Paneli{% endblock %}
 
 {% block content %}
-<section class="content-card">
-    <h2>Yönetici Paneli</h2>
-    <div class="admin-stats">
-        <p><strong>Toplam Katılımcı:</strong> {{ user_count }}</p>
-        <p><strong>Toplam Vaka Sayısı:</strong> {{ case_count }}</p>
-        <p><strong>Toplam Yanıt Sayısı:</strong> {{ response_count }}</p>
+
+{# ÜST BAŞLIK VE ANA EYLEM BUTONU #}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h2>Yönetici Kontrol Paneli</h2>
+    <div style="display:flex; gap:0.5rem;">
+        <a href="{{ url_for('upload_json') }}" class="button" style="width: auto;">
+            + Yeni Araştırma Yükle (.json)
+        </a>
+        <a href="{{ url_for('manage_llms') }}" class="button" style="width: auto;">
+            LLM Yönetimi
+        </a>
     </div>
-</section>
-
-<div class="upload-container">
-    <section class="content-card">
-        <h3>Toplu Vaka Yükleme (.csv)</h3>
-        <p class="subtitle">Bu özellik devre dışıdır. Lütfen JSON kullanın.</p>
-        <form action="{{ url_for('upload_csv') }}" method="post" enctype="multipart/form-data" class="upload-form">
-            <input type="file" name="file" accept=".csv" disabled>
-            <button type="submit" disabled>CSV ile Yükle</button>
-        </form>
-        <div class="csv-format">
-            <p><strong>Gereken CSV Formatı:</strong></p>
-            <pre><code>(Devre dışı)</code></pre>
-        </div>
-    </section>
-
-    <section class="content-card">
-        <h3>Toplu Vaka Yükleme (.json)</h3>
-        <p class="subtitle">Detaylı vakalar için JSON kullanın.</p>
-        <form action="{{ url_for('upload_json') }}" method="post" enctype="multipart/form-data">
-            <div class="form-grup">
-                <label for="json_text">JSON Metni Yapıştırın:</label>
-                <textarea name="json_text" id="json_text" rows="8" placeholder='[ { "title": "Vaka Adı", ... } ]'></textarea>
-            </div>
-            <div class="form-grup upload-form">
-                <label for="json_file" style="flex-shrink: 0; margin-right: 1rem;">VEYA Dosya Yükleyin:</label>
-                <input type="file" name="json_file" id="json_file" accept=".json, .txt">
-            </div>
-            <button type="submit">JSON ile Yükle</button>
-        </form>
-         <div class="csv-format">
-            <p><strong>Örnek JSON Formatı:</strong></p>
-            <pre><code>[
-  {
-    "title": "Vaka 3",
-    "anamnesis": {"Şikayet": "..."},
-    "physical_exam": {"Bulgu": "..."},
-    "gold_standard_response": {
-      "tanı": "...", "tetkik": "...",
-      "tedavi_plani": "...", "dozaj": "..."
-    },
-    "chatgpt_response": {"tanı": "..."},
-    "gemini_response": {"tanı": "..."}
-  }
-]</code></pre>
-        </div>
-    </section>
 </div>
 
+{# ARAŞTIRMA LİSTESİ #}
 <section class="content-card">
-    <h3>Veri Dışa Aktarma</h3>
-    <p class="subtitle">Araştırmanızda kullanmak üzere, toplanan tüm yanıt verilerini içeren CSV dosyasını indirin.</p>
-    <div class="actions">
-        <a href="{{ url_for('export_csv') }}" class="button">Tüm Yanıt Veri Setini İndir (.csv)</a>
-    </div>
+    <h3>Mevcut Araştırmalar</h3>
+    {% if researches %}
+        <div class="case-list" style="margin-top: 1.5rem;">
+            {% for research in researches %}
+                <div class="case-list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem; border: 1px solid var(--border-color); border-radius: 0.5rem; margin-bottom: 1rem;">
+                    <div class="research-info">
+                        <strong style="font-size: 1.1rem;">{{ research.title }}</strong>
+                        <p style="margin: 0.25rem 0 0 0; color: var(--light-text-color);">
+                            {{ research.cases | length }} Vaka
+                            <span style="margin: 0 0.5rem;">•</span>
+                            {% if research.is_active %}
+                                <span style="color: var(--success-color);">Aktif</span>
+                            {% else %}
+                                <span style="color: var(--danger-color);">Pasif</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="research-actions">
+                        <a href="{{ url_for('edit_research', research_id=research.id) }}" class="button-sm">Yönet & Düzenle</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p style="margin-top: 1.5rem;">Sistemde hiç araştırma bulunmuyor. Başlamak için yukarıdaki "Yeni Araştırma Yükle" butonunu kullanın.</p>
+    {% endif %}
 </section>
+
+{# GENEL ARAÇLAR VE İSTATİSTİKLER #}
+<div class="upload-container" style="margin-top: 2rem;">
+    <section class="content-card">
+        <h4>Genel İstatistikler</h4>
+        <div class="admin-stats" style="flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
+            <p><strong>Toplam Katılımcı:</strong> {{ stats.user_count }}</p>
+            <p><strong>Toplam Vaka Sayısı:</strong> {{ stats.case_count }}</p>
+            <p><strong>Toplam Yanıt Sayısı:</strong> {{ stats.response_count }}</p>
+        </div>
+    </section>
+
+    <section class="content-card">
+        <h4>Veri Dışa Aktarma</h4>
+        <p class="subtitle" style="margin-bottom: 1rem;">Tüm yanıtlara ait ham veriyi CSV olarak indirin.</p>
+        <a href="{{ url_for('export_csv') }}" class="button">Tüm Veri Setini İndir</a>
+    </section>
+</div>
 {% endblock %}

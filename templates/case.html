@@ -3,6 +3,16 @@
 {% block title %}{{ case.title }}{% endblock %}
 
 {% block content %}
+{# İlerleme çubuğu: sayfanın en üstüne ekleyin --}
+{% if current_case_index and total_cases %}
+<div class="content-card" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+    <h3 style="margin: 0 0 1rem 0;">İlerleme: {{ current_case_index }} / {{ total_cases }}</h3>
+    <div style="background-color: #e5e7eb; border-radius: 99px; overflow: hidden;">
+        <div style="width: {{ (current_case_index / total_cases) * 100 }}%; background-color: var(--primary-color); padding: 6px 0; transition: width 0.5s ease-in-out;"></div>
+    </div>
+</div>
+{% endif %}
+
 <section class="content-card vaka-karti">
     <h2>{{ case.title }}</h2>
     

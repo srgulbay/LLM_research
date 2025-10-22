@@ -1,0 +1,59 @@
+{% extends "admin/admin_layout.html" %}
+{% block title %}Araştırma Paneli: {{ research.title }}{% endblock %}
+
+{% block admin_content %}
+<style>
+    .tabs { display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem; }
+    .tabs a { padding: 0.75rem 1.5rem; text-decoration: none; color: var(--light-text-color); font-weight: 600; border-bottom: 3px solid transparent; }
+    .tabs a.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+</style>
+
+<div style="margin-bottom: 2rem;">
+    <h2 style="margin: 0;">{{ research.title }}</h2>
+    <p class="subtitle" style="margin: 0;">Araştırma Yönetim Paneli</p>
+</div>
+
+<section class="content-card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>Vakalar ({{ cases|length }})</h3>
+        <a href="{{ url_for('add_case_to_research', research_id=research.id) }}" class="button" style="width: auto;">+ Yeni Vaka Ekle</a>
+    </div>
+    <div class="case-list" style="margin-top: 1.5rem;">
+        {% for case in cases %}
+        <div class="case-list-item" style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 1rem; padding: 1.25rem; border: 1px solid var(--border-color); border-radius: 0.5rem; margin-bottom: 1rem; align-items: center;">
+            <strong>{{ case.content.title or 'Başlıksız Vaka' }}</strong>
+            <a href="{{ url_for('review_case', case_id=case.id) }}" class="button-sm" style="background-color: var(--info-color);">Analiz</a>
+            <a href="{{ url_for('edit_case', case_id=case.id) }}" class="button-sm">Düzenle</a>
+            <form action="{{ url_for('delete_case', case_id=case.id) }}" method="POST" onsubmit="return confirm('Bu vakayı ve tüm yanıtlarını kalıcı olarak silmek istediğinizden emin misiniz?');" style="margin:0;">
+                <button type="submit" class="button-sm" style="background-color: var(--danger-color); border-color: var(--danger-color);">Sil</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<div class="upload-container" style="margin-top: 2rem;">
+    <section class="content-card">
+        <h4>Araştırma Ayarları</h4>
+        <form method="POST" action="{{ url_for('research_admin_dashboard', research_id=research.id) }}">
+            <div class="form-grup">
+                <label>Araştırma Başlığı</label>
+                <input type="text" name="title" value="{{ research.title }}">
+            </div>
+            <div class="form-grup">
+                <label>Araştırma Açıklaması</label>
+                <textarea name="description" rows="3">{{ research.description }}</textarea>
+            </div>
+            <div class="form-grup"><input type="checkbox" name="is_active" {% if research.is_active %}checked{% endif %} style="width: auto; margin-right: 0.5rem;"><label>Aktif</label></div>
+            <button type="submit">Ayarları Kaydet</button>
+        </form>
+    </section>
+    <section class="content-card">
+        <h4>Veri ve Raporlama</h4>
+        <div class="actions" style="display: flex; flex-direction: column; gap: 1rem;">
+            <a href="{{ url_for('research_dashboard_admin', research_id=research.id) }}" class="button">İstatistik Panelini Görüntüle</a>
+            <a href="{{ url_for('export_research_csv', research_id=research.id) }}" class="button">Bu Araştırmanın Veri Setini İndir</a>
+        </div>
+    </section>
+</div>
+{% endblock %}

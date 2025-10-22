@@ -1,0 +1,104 @@
+{% extends "layout.html" %}
+
+{% block title %}Vaka Düzenle: {{ case.content.title }}{% endblock %}
+
+{% block content %}
+<section class="content-card">
+    <form method="POST" id="case-editor-form">
+        <h2>Vaka Bilgilerini Düzenle</h2>
+        <div class="form-grup">
+            <label for="title">Vaka Başlığı</label>
+            <input type="text" id="title" name="title" value="{{ case.content.title }}">
+        </div>
+
+        <hr class="form-divider">
+
+        {# --- YENİ: LLM Yanıtları Bölümü --- #}
+        <h3>LLM Yanıtları (Karşılaştırma için)</h3>
+        <div class="form-grup">
+            <label for="llm_chatgpt">ChatGPT Yanıtı</label>
+            <textarea id="llm_chatgpt" name="llm_chatgpt" rows="3">{{ case.content.get('llm_responses', {}).get('chatgpt', '') }}</textarea>
+        </div>
+        <div class="form-grup">
+            <label for="llm_gemini">Gemini Yanıtı</label>
+            <textarea id="llm_gemini" name="llm_gemini" rows="3">{{ case.content.get('llm_responses', {}).get('gemini', '') }}</textarea>
+        </div>
+        <div class="form-grup">
+            <label for="llm_deepseek">Deepseek Yanıtı</label>
+            <textarea id="llm_deepseek" name="llm_deepseek" rows="3">{{ case.content.get('llm_responses', {}).get('deepseek', '') }}</textarea>
+        </div>
+
+        <hr class="form-divider">
+
+        <h3>Anket Soruları</h3>
+        <div id="questions-container">
+            {% for q in case.content.questions %}
+            <div class="question-block" style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                <div class="form-grup">
+                    <label>Soru ID (Değiştirmeyin)</label>
+                    <input type="text" name="question_id" value="{{ q.id }}" readonly>
+                </div>
+                <div class="form-grup">
+                    <label>Soru Metni</label>
+                    <input type="text" name="question_label" value="{{ q.label }}">
+                </div>
+                <div class="form-grup">
+                    <label>Soru Tipi</label>
+                    <select name="question_type" class="question-type-select">
+                        <option value="open-ended" {% if q.type == 'open-ended' %}selected{% endif %}>Açık Uçlu (Kısa Metin)</option>
+                        <option value="multiple-choice" {% if q.type == 'multiple-choice' %}selected{% endif %}>Çoktan Seçmeli</option>
+                    </select>
+                </div>
+                <div class="form-grup options-container" style="display: {{ 'block' if q.type == 'multiple-choice' else 'none' }};">
+                    <label>Seçenekler (Her satıra bir tane)</label>
+                    <textarea name="question_options" rows="4">{% if q.options %}{{ q.options | join('\n') }}{% endif %}</textarea>
+                </div>
+                <button type="button" class="button-sm" style="background-color: var(--danger-color);" onclick="this.closest('.question-block').remove()">Soruyu Sil</button>
+            </div>
+            {% endfor %}
+        </div>
+        <button type="button" id="add-question-btn" class="button" style="width: auto; background-color: var(--success-color);">Yeni Soru Ekle</button>
+        
+        <hr class="form-divider">
+        
+        <button type="submit">Vakayı Kaydet</button>
+    </form>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const questionsContainer = document.getElementById('questions-container');
+
+    // Soru tipi değiştikçe seçenekler kutusunu göster/gizle
+    questionsContainer.addEventListener('change', function(e) {
+        if (e.target.classList.contains('question-type-select')) {
+            const optionsContainer = e.target.closest('.question-block').querySelector('.options-container');
+            if (optionsContainer) {
+                optionsContainer.style.display = e.target.value === 'multiple-choice' ? 'block' : 'none';
+            }
+        }
+    });
+
+    // Yeni soru ekleme
+    document.getElementById('add-question-btn').addEventListener('click', function() {
+        const container = questionsContainer;
+        const newId = 'q_new_' + Date.now(); // Benzersiz bir ID oluştur
+        const questionHtml = `
+            <div class="question-block" style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                <div class="form-grup"><label>Soru ID</label><input type="text" name="question_id" value="${newId}" readonly></div>
+                <div class="form-grup"><label>Soru Metni</label><input type="text" name="question_label" value=""></div>
+                <div class="form-grup"><label>Soru Tipi</label>
+                    <select name="question_type" class="question-type-select">
+                        <option value="open-ended" selected>Açık Uçlu (Kısa Metin)</option>
+                        <option value="multiple-choice">Çoktan Seçmeli</option>
+                    </select>
+                </div>
+                <div class="form-grup options-container" style="display: none;"><label>Seçenekler (Her satıra bir tane)</label><textarea name="question_options" rows="4"></textarea></div>
+                <button type="button" class="button-sm" style="background-color: var(--danger-color);" onclick="this.closest('.question-block').remove()">Soruyu Sil</button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', questionHtml);
+    });
+});
+</script>
+{% endblock %}

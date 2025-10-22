@@ -1,5 +1,5 @@
 from app import app, db
-from app import User, Case, ReferenceAnswer # Modelleri import et
+from app import User, Case, ReferenceAnswer, Research # Modelleri import et
 from werkzeug.security import generate_password_hash
 import json
 import datetime # Eklendi
@@ -39,49 +39,57 @@ def create_initial_admin():
         db.session.commit()
 
 def seed_database():
-    """Başlangıç verilerini (vakaları) ekler."""
+    """Başlangıç verilerini (araştırma ve vakaları) ekler."""
     with app.app_context():
+        # Eğer zaten bir vaka varsa, işlemi atla
         if Case.query.first() is not None:
             print("Veritabanı zaten veri içeriyor, seeding atlandı.")
             return
 
-        print("Veritabanı boş, başlangıç vakaları ekleniyor...")
-        initial_cases_data = [
-             {
-                "title": "Vaka 1: Huzursuz Bebek", "anamnesis": {"Hasta": "18 aylık, erkek.", "Şikayet": "Huzursuzluk, ateş ve sol kulağını çekiştirme."},
-                "physical_exam": {"Bulgu": "Sol kulak zarında hiperemi ve bombeleşme."},
-                "gold_standard_response": {"tanı": "Akut Otitis Media", "tetkik": "Ek tetkik gerekmez", "tedavi_plani": "Antibiyoterapi", "dozaj": "Yüksek doz Amoksisilin"},
-                "chatgpt_response": {"tanı": "Akut Otitis Media", "tetkik": "Gerekli değil", "tedavi_plani": "Amoksisilin", "dozaj": "90 mg/kg/gün"},
-                "gemini_response": {"tanı": "Bakteriyel AOM", "tetkik": "Endike değil", "tedavi_plani": "Amoksisilin-Klavulanat", "dozaj": "Standart doz"},
-                "deepseek_response": {"tanı": "Sol Akut Otitis Media", "tetkik": "İstenmez", "tedavi_plani": "Antibiyotik", "dozaj": "Amoksisilin tedavisi"}
-            },
-            {
-                "title": "Vaka 2: Öksüren Çocuk", "anamnesis": {"Hasta": "4 yaşında, kız.", "Şikayet": "3 gündür ateş, öksürük ve hızlı nefes alma."},
-                "physical_exam": {"Bulgu": "Sağ akciğer alt zonda krepitan raller."},
-                "gold_standard_response": {"tanı": "Toplum Kökenli Pnömoni", "tetkik": "Akciğer Grafisi", "tedavi_plani": "Oral antibiyoterapi", "dozaj": "Yüksek doz Amoksisilin"},
-                "chatgpt_response": {"tanı": "Pnömoni", "tetkik": "Akciğer grafisi, TKS", "tedavi_plani": "Amoksisilin", "dozaj": "80-100 mg/kg/gün"},
-                "gemini_response": {"tanı": "Sağ Alt Lob Pnömonisi", "tetkik": "Akciğer Röntgeni", "tedavi_plani": "Destekleyici bakım", "dozaj": "Oral amoksisilin"},
-                "deepseek_response": {"tanı": "Pnömoni", "tetkik": "Göğüs X-ray", "tedavi_plani": "Antibiyotik", "dozaj": "Uygun antibiyotik"}
-            }
-        ]
+        print("Veritabanı boş, başlangıç verileri ekleniyor...")
 
         try:
-            for case_data in initial_cases_data:
-                new_case = Case(
-                    title=case_data.get("title"), anamnesis=json.dumps(case_data.get("anamnesis", {})),
-                    physical_exam=json.dumps(case_data.get("physical_exam", {})),
-                    chatgpt_response=json.dumps(case_data.get("chatgpt_response", {})),
-                    gemini_response=json.dumps(case_data.get("gemini_response", {})),
-                    deepseek_response=json.dumps(case_data.get("deepseek_response", {}))
-                )
-                db.session.add(new_case)
-                db.session.flush() # ID'nin atanmasını sağla
+            # 1. Yeni bir Araştırma oluştur
+            new_research = Research(
+                title="Primer İmmün Yetmezlikler Erken Tanısı LLM-İnsan Araştırması",
+                description="Bu araştırma, sık enfeksiyon geçiren çocuklarda PİY erken tanısına yönelik hekim ve LLM performansını karşılaştırmaktadır.",
+                is_active=True
+            )
+            db.session.add(new_research)
+            # ID'nin bu aşamada atanmasını sağlamak için flush() kullanıyoruz
+            db.session.flush()
+            print(f"Araştırma oluşturuldu: {new_research.title}")
 
-                ref_answer = ReferenceAnswer(case_id=new_case.id, source='gold', content=case_data.get('gold_standard_response', {}))
-                db.session.add(ref_answer)
+            # 2. Yeni JSON formatında bir Vaka içeriği tanımla
+            case_content_data = {
+                "case_id": "PIY_Vaka_01",
+                "title": "Vaka 1: Tekrarlayan Akciğer Enfeksiyonu",
+                "sections": [
+                    { "title": "Anamnez", "content": "2 yaşında erkek hasta, son 6 ayda 4 kez zatürre tanısı almış..." },
+                    { "title": "Fizik Muayene", "content": "Solunum sesleri bilateral kaba, ral duyulmadı..." }
+                ],
+                "questions": [
+                    { "id": "q1_tani", "type": "open-ended", "label": "1. Bu hastadaki en olası ön tanınız nedir?" },
+                    { "id": "q2_tetkik", "type": "multiple-choice", "label": "2. Hangi tetkiki ilk istersiniz?", "options": ["Akciğer Grafisi", "Tam Kan Sayımı", "İmmünglobulin Düzeyleri (IgG, IgA, IgM)", "Ter Testi"] },
+                    { "id": "q3_ek_not", "type": "textarea", "label": "3. Eklemek istediğiniz notlar var mı?" }
+                ],
+                "gold_standard": {
+                    "q1_tani": "Primer İmmün Yetmezlik şüphesi",
+                    "q2_tetkik": "İmmünglobulin Düzeyleri (IgG, IgA, IgM)",
+                    "q3_ek_not": "Hastanın aile öyküsü sorgulanmalı ve lenfosit alt grup analizi planlanmalıdır."
+                }
+            }
+
+            # 3. Vakayı oluştur ve Araştırmaya bağla. content alanına tüm JSON'ı ata.
+            new_case = Case(
+                research_id=new_research.id,
+                content=case_content_data
+            )
+            db.session.add(new_case)
+            print(f"Vaka oluşturuldu: {case_content_data['title']}")
 
             db.session.commit()
-            print(f"{len(initial_cases_data)} başlangıç vakası eklendi.")
+            print("Başlangıç verileri başarıyla eklendi.")
         except Exception as e:
             db.session.rollback()
             print(f"Seeding sırasında hata: {e}")

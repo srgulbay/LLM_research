@@ -1,0 +1,54 @@
+{% extends "admin/admin_layout.html" %}
+{% block title %}Yönetici Ana Paneli{% endblock %}
+
+{% block admin_content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div>
+        <h2 style="margin: 0;">Yönetici Ana Paneli</h2>
+        <p class="subtitle" style="margin: 0;">Tüm araştırmaları buradan yönetin.</p>
+    </div>
+</div>
+
+<div class="score-breakdown" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 2rem;">
+    <div class="score-item"><h4>Toplam Katılımcı</h4><p class="score-value">{{ stats.user_count }}</p></div>
+    <div class="score-item"><h4>Toplam Vaka</h4><p class="score-value">{{ stats.case_count }}</p></div>
+    <div class="score-item"><h4>Toplam Yanıt</h4><p class="score-value">{{ stats.response_count }}</p></div>
+</div>
+
+<section class="content-card">
+    <h3>Araştırma Projeleri</h3>
+    {% if researches %}
+        <div class="tablo-container" style="margin-top: 1.5rem;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Başlık</th>
+                        <th>Durum</th>
+                        <th>Vaka Sayısı</th>
+                        <th>Yanıt Sayısı</th>
+                        <th>İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for research in researches %}
+                    <tr>
+                        <td><strong>{{ research.title }}</strong></td>
+                        <td>
+                            {% if research.is_active %}<span style="color: var(--success-color);">Aktif</span>
+                            {% else %}<span style="color: var(--danger-color);">Pasif</span>{% endif %}
+                        </td>
+                        <td>{{ research.cases | length }}</td>
+                        <td>{{ (research.cases | map(attribute='responses') | sum(start=[])) | length }}</td>
+                        <td>
+                            <a href="{{ url_for('research_admin_dashboard', research_id=research.id) }}" class="button-sm">Yönetim Paneli</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p style="margin-top: 1.5rem;">Sistemde hiç araştırma bulunmuyor.</p>
+    {% endif %}
+</section>
+{% endblock %}

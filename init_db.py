@@ -86,6 +86,14 @@ def create_initial_data():
             all_users = User.query.filter_by(is_admin=False).all()
             all_cases = Case.query.all()
             responses = []
+            
+            if not all_users:
+                 print("UYARI: Sanal kullanıcı bulunamadı, yanıt oluşturulamıyor.")
+                 return
+            if not all_cases:
+                 print("UYARI: Vaka bulunamadı, yanıt oluşturulamıyor.")
+                 return
+
             for user in all_users:
                 for case in all_cases:
                     answers = {}
@@ -99,6 +107,8 @@ def create_initial_data():
                         user_id=user.id,
                         case_id=case.id,
                         answers=answers,
+                        confidence_score=random.randint(20, 100),
+                        clinical_rationale=fake.sentence(),
                         duration_seconds=random.randint(60, 300)
                     )
                     responses.append(response)
@@ -123,6 +133,7 @@ if __name__ == "__main__":
             print("\nUYARI: 'Faker' kütüphanesi bulunamadı. Lütfen 'pip install Faker' komutuyla kurun.\n")
             exit()
 
+        print("Başlangıç verileri oluşturuluyor...")
         create_initial_data()
 
     print("\nVeritabanı başlatma ve doldurma işlemi tamamlandı.")

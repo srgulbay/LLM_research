@@ -11,12 +11,12 @@ def test_client():
     """
     app.config.update({
         "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", # Hafızada çalışan DB
         "WTF_CSRF_ENABLED": False,
         "LOGIN_DISABLED": False,
+        "SECRET_KEY": "test-secret-key" # Testler için gizli anahtar
     })
 
-    # --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
     with app.app_context():
         db.create_all()
         
@@ -33,12 +33,11 @@ def test_client():
             db.session.add(admin)
             db.session.commit()
         
-        # yield, with bloğunun içine taşındı. 
-        # Bu, tüm testlerin aynı veritabanı bağlamında çalışmasını sağlar.
+        # yield, test istemcisini test fonksiyonuna gönderir
         yield app.test_client()
         
+        # Testler bittikten sonra veritabanını temizle
         db.drop_all()
-    # --- DEĞİŞİKLİK BURADA BİTİYOR ---
 
 # --- TESTLER ---
 
@@ -46,6 +45,7 @@ def test_ana_sayfa_yonlendirmesi(test_client):
     """1. Test: Giriş yapmamış bir kullanıcı ana sayfaya gittiğinde giriş sayfasına yönlendirilir mi?"""
     response = test_client.get('/', follow_redirects=True)
     assert response.status_code == 200
+    # Artık 'giris.html' dosyasını arıyoruz
     assert 'Giriş Yap veya Hesap Oluştur' in response.data.decode('utf-8')
 
 def test_kullanici_kayit_ve_onboarding_sureci(test_client):
@@ -54,15 +54,15 @@ def test_kullanici_kayit_ve_onboarding_sureci(test_client):
     email = 'onboarding@test.com'
     response = test_client.post('/giris', data={'email': email}, follow_redirects=True)
     assert response.status_code == 200
-    assert 'Araştırma Katılım Onayı' in response.data.decode('utf-8') or 'Onam' in response.data.decode('utf-8')
+    assert 'Araştırma Katılım Onayı' in response.data.decode('utf-8')
 
     response = test_client.post('/consent', follow_redirects=True)
     assert response.status_code == 200
-    assert 'Katılımcı Bilgileri' in response.data.decode('utf-8') or 'Demografi' in response.data.decode('utf-8')
+    assert 'Katılımcı Bilgileri' in response.data.decode('utf-8')
 
     response = test_client.post('/demographics', data={'profession': 'Pratisyen Hekim', 'experience': 5}, follow_redirects=True)
     assert response.status_code == 200
-    assert 'Mevcut Araştırmalar' in response.data.decode('utf-8') or 'Araştırma' in response.data.decode('utf-8')
+    assert 'Mevcut Araştırmalar' in response.data.decode('utf-8')
 
     user = User.query.filter_by(email=email).first()
     assert user is not None
@@ -73,14 +73,14 @@ def test_yonetici_giris_ve_panel_erisim(test_client):
     """3. Test: Yönetici doğru şifreyle giriş yapıp yönetici paneline erişebilir mi?"""
     response = test_client.post('/admin/login', data={'email': 'admin@test.com', 'password': '123456'}, follow_redirects=True)
     assert response.status_code == 200
-    assert 'Yönetici Ana Paneli' in response.data.decode('utf-8') or 'admin' in response.data.decode('utf-8').lower()
+    assert 'Yönetici Ana Paneli' in response.data.decode('utf-8')
 
 def test_yonetici_arastirma_yukleme_ve_yonetme(test_client):
     """4. Test: Yönetici yeni bir araştırmayı JSON ile yükleyebilir ve yönetebilir mi?"""
     # Admin giriş yap
     test_client.post('/admin/login', data={'email': 'admin@test.com', 'password': '123456'})
 
-    # LLM ekle
+    # LLM ekle (Araştırma yüklemesi LLM'lere bağlı olabilir)
     response = test_client.post('/admin/llm/ekle', data={'name': 'GPT-4'})
     llm = LLM.query.filter_by(name='GPT-4').first()
     assert llm is not None
@@ -135,18 +135,22 @@ def test_kullanici_vaka_cozum_akisi(test_client):
             'q1': 'Kullanıcı Cevabı', 
             'confidence_score': 80,
             'clinical_rationale': 'Test gerekçesi',
-            'duration_seconds': 120
+            'duration_seconds': 120 # Bu artık formdan gelmiyor, sunucu hesaplıyor
         }, 
         follow_redirects=True
     )
     assert response.status_code == 200
+    # Araştırma bittiği için final raporuna yönlenmeli
+    assert 'Araştırmayı Tamamladınız!' in response.data.decode('utf-8')
 
     # Yanıtın kaydedildiğini kontrol et
-    user_response = UserResponse.query.join(Case).filter(
-        Case.research_id == research.id,
-        UserResponse.answers['q1'].astext == 'Kullanıcı Cevabı'
-    ).first()
+    user = User.query.filter_by(email='user@test.com').first()
+    user_response = UserResponse.query.filter_by(author=user, case_id=case.id).first()
     assert user_response is not None
+    assert user_response.answers['q1'] == 'Kullanıcı Cevabı'
+    assert user_response.confidence_score == 80
+    assert user_response.clinical_rationale == 'Test gerekçesi'
+
 
 def test_yonetici_vaka_analiz_ekrani(test_client):
     """6. Test: Yönetici bir vaka için analiz ekranına erişebilir mi?"""
@@ -158,6 +162,7 @@ def test_yonetici_vaka_analiz_ekrani(test_client):
 
     response = test_client.get(f'/admin/case/{case.id}/review')
     assert response.status_code == 200
+    assert 'Vaka Analiz Ekranı' in response.data.decode('utf-8')
 
 def test_yonetici_bilimsel_analiz(test_client):
     """7. Test: Yönetici bilimsel analiz paneline erişebilir mi?"""
@@ -165,5 +170,8 @@ def test_yonetici_bilimsel_analiz(test_client):
     test_client.post('/admin/login', data={'email': 'admin@test.com', 'password': '123456'})
 
     research = Research.query.filter_by(title='Test Araştırması').first()
+    
+    # Analiz sayfası veri olmadan da açılmalı (henüz veri yok uyarısı ile)
     response = test_client.get(f'/admin/research/{research.id}/analytics')
     assert response.status_code == 200
+    assert 'Bilimsel Analiz Paneli' in response.data.decode('utf-8')

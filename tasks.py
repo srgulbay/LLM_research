@@ -5,7 +5,6 @@ from rq import Queue, get_current_job
 from app import app, db, get_semantic_score, UserResponse, ReferenceAnswer
 
 # app.py'de tanımlanan Redis bağlantısını ve kuyruğu al
-# Bu, worker'ın da aynı bağlantı ayarlarını kullanmasını sağlar.
 redis_url = os.getenv('REDIS_URL')
 if not redis_url:
     print("HATA: tasks.py REDIS_URL bulamadı. Worker çalışmayacak.")
@@ -14,95 +13,113 @@ else:
     conn = Redis.from_url(redis_url)
 
 def score_and_store_response(response_id):
-    job = get_current_job(conn)
-    if not job: 
-        app.logger.error("Job context bulunamadı.")
-        return
     """
     Bir kullanıcı yanıtını (UserResponse) Gemini API kullanarak puanlar
     ve sonuçları veritabanına kaydeder. Bu fonksiyon RQ worker'ı
     tarafından asenkron olarak çalıştırılır.
     """
+    if not conn:
+        print(f"HATA: Redis bağlantısı yok. Görev {response_id} çalıştırılamadı.")
+        return
+
+    job = get_current_job(conn)
+    if not job: 
+        print(f"HATA: Job context bulunamadı (Response ID: {response_id}).")
+        # Job context olmadan devam etmeyi deneyebiliriz ancak meta güncellenemez
+    
+    def update_job_status(status):
+        if job:
+            job.meta['status'] = status
+            job.save_meta()
+        print(f"[Job {response_id}]: {status}")
+
     with app.app_context():
         try:
-            # 1. Gerekli verileri veritabanından çek
+            update_job_status('Başlatılıyor...')
+            
             ur = db.session.get(UserResponse, response_id)
             if not ur:
                 app.logger.warning("UserResponse bulunamadı: %s", response_id)
                 return
 
-            # Altın standart yanıtı 'ReferenceAnswer' tablosundan al
-            gold = ReferenceAnswer.query.filter_by(case_id=ur.case_id, source='gold').first()
-            if not gold:
+            if not ur.case or not ur.case.content:
+                app.logger.error("Vaka (Case) veya vaka içeriği bulunamadı (Response ID: %s)", response_id)
+                return
+
+            case_content = ur.case.content
+            gold_standard_data = case_content.get('gold_standard', {})
+            if not gold_standard_data:
                 app.logger.error("Altın Standart yanıt bulunamadı (Case ID: %s)", ur.case_id)
-                ur.score_reasons = {"error": "Altın Standart yanıt bulunamadı."}
+                ur.scores = {"error": "Altın Standart yanıt bulunamadı."}
                 db.session.commit()
                 return
             
-            gold_content = gold.content # Bu zaten bir JSON (dict) olmalı
+            user_answers = ur.answers or {}
             
+            scores = {}
             reasons = {}
             llm_raw = {}
-
-            # 2. Puanlama Aşamaları
             
-            job.meta['status'] = '1/4: Tanı puanlanıyor...'
-            job.save_meta()
-            # Tanı
-            diag_score, diag_raw = get_semantic_score(ur.user_diagnosis, gold_content.get('tanı', ''), 'Tanı')
-            ur.diagnosis_score = float(diag_score)
-            reasons['diagnosis'] = diag_raw.get('reason')
-            llm_raw['diagnosis'] = diag_raw.get('raw')
+            # Puanlanacak soruları bul (Altın standartta olanlar)
+            questions_to_score = [q for q in (case_content.get('questions', [])) if q.get('id') in gold_standard_data]
 
-            job.meta['status'] = '2/4: Tetkikler puanlanıyor...'
-            job.save_meta()
-            # Tetkik (Tanı skoruna koşullu)
-            if diag_score >= 70:
-                tests_score, tests_raw = get_semantic_score(ur.user_tests, gold_content.get('tetkik', ''), 'Tetkik')
-                ur.investigation_score = float(tests_score)
-                reasons['tests'] = tests_raw.get('reason')
-                llm_raw['tests'] = tests_raw.get('raw')
-            else:
-                ur.investigation_score = 0.0
-                reasons['tests'] = "Tanı yetersiz/hatalı olduğu için tetkik puanlanmadı."
-                llm_raw['tests'] = None
+            if not questions_to_score:
+                 app.logger.warning("Puanlanacak soru bulunamadı (Case ID: %s)", ur.case_id)
+                 ur.scores = {"error": "Altın standartta puanlanacak soru bulunamadı."}
+                 db.session.commit()
+                 return
 
-            job.meta['status'] = '3/4: Tedavi planı puanlanıyor...'
-            job.save_meta()
-            # Tedavi (İlaç seçimi)
-            treat_text = f"İlaç Grubu: {ur.user_drug_class}, Etken Madde: {ur.user_active_ingredient}"
-            treat_score, treat_raw = get_semantic_score(treat_text, gold_content.get('tedavi_plani', ''), 'Tedavi Planı')
-            ur.treatment_score = float(treat_score)
-            reasons['treatment'] = treat_raw.get('reason')
-            llm_raw['treatment'] = treat_raw.get('raw')
-
-            job.meta['status'] = '4/4: Dozaj puanlanıyor...'
-            job.save_meta()
-            # Dozaj (Tedavi skoruna koşullu)
-            if treat_score >= 70:
-                dosage_score, dosage_raw = get_semantic_score(ur.user_dosage_notes, gold_content.get('dozaj', ''), 'Dozaj')
-                ur.dosage_score = float(dosage_score)
-                reasons['dosage'] = dosage_raw.get('reason')
-                llm_raw['dosage'] = dosage_raw.get('raw')
-            else:
-                ur.dosage_score = 0.0
-                reasons['dosage'] = "İlaç seçimi yetersiz/hatalı olduğu için dozaj puanlanmadı."
-                llm_raw['dosage'] = None
-
-            # 3. Final Skoru Hesapla ve Kaydet
-            scores = [s for s in [ur.diagnosis_score, ur.investigation_score, ur.treatment_score, ur.dosage_score] if s is not None]
-            ur.final_score = round(sum(scores) / max(1, len(scores)), 2)
+            total_score = 0
+            score_count = 0
             
-            ur.score_reasons = reasons
-            ur.llm_raw = llm_raw
+            for i, question in enumerate(questions_to_score):
+                q_id = question.get('id')
+                q_label = question.get('label', q_id)
+                
+                update_job_status(f'{i+1}/{len(questions_to_score)}: "{q_label}" puanlanıyor...')
+
+                user_answer = user_answers.get(q_id, "")
+                gold_answer = gold_standard_data.get(q_id, "")
+                
+                if not user_answer or not gold_answer:
+                    score = 0.0
+                    reason = "Kullanıcı yanıtı veya altın standart yanıt boş."
+                    raw_response = None
+                else:
+                    # 'Kategori' olarak sorunun etiketini (label) kullan
+                    score, raw_data = get_semantic_score(user_answer, gold_answer, q_label)
+                    score = float(score)
+                    reason = raw_data.get('reason')
+                    raw_response = raw_data.get('raw')
+
+                scores[q_id] = score
+                reasons[q_id] = reason
+                llm_raw[q_id] = raw_response
+                
+                total_score += score
+                score_count += 1
+
+            # Final Skoru Hesapla ve Kaydet
+            final_score = round(total_score / max(1, score_count), 2)
+            
+            ur.scores = {
+                "final_score": final_score,
+                "question_scores": scores,
+                "reasons": reasons
+            }
+            # Ham LLM yanıtlarını ayrı bir sütunda saklamak daha iyi olabilir
+            # ama şimdilik 'scores' içine gömüyoruz:
+            ur.scores["llm_raw"] = llm_raw
             
             db.session.add(ur)
             db.session.commit()
             
-            job.meta['status'] = 'Tamamlandı'
-            job.save_meta()
-            app.logger.info("Puanlama tamamlandı: Response ID %s", response_id)
+            update_job_status('Tamamlandı')
+            app.logger.info("Puanlama tamamlandı: Response ID %s, Final Skor: %s", response_id, final_score)
 
         except Exception as e:
             app.logger.exception("score_and_store_response hatası")
             db.session.rollback()
+            if job:
+                update_job_status(f'Hata: {e}')
+

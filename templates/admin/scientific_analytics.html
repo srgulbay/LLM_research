@@ -1,63 +1,180 @@
-{% extends "admin/admin_layout_new.html" %}
+{% extends "admin/admin_layout.html" %}
 {% block title %}Bilimsel Analiz: {{ research.title }}{% endblock %}
 
 {% block admin_content %}
-<div class="mb-8">
-    <h2 class="text-3xl font-bold text-slate-900 dark:text-white">Bilimsel Analiz Paneli</h2>
-    <p class="text-slate-500 dark:text-slate-400 mt-1">{{ research.title }}</p>
-</div>
-
-<div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
-    <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Genel Performans: İnsan vs. LLM (Ortalama Skor)</h3>
-    <canvas id="overallPerformanceChart"></canvas>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
-        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Katılımcı Performansı (Unvana Göre)</h3>
-        <canvas id="performanceByProfessionChart"></canvas>
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8">
+        <a href="{{ url_for('research_admin_dashboard', research_id=research.id) }}" class="text-blue-600 dark:text-blue-400 mb-4 inline-block">← Geri</a>
+        <h2 class="text-3xl font-bold text-slate-900 dark:text-white">{{ research.title }} - Bilimsel Analiz</h2>
+        <p class="text-slate-500 dark:text-slate-400 mt-1">İnsan vs. LLM performans karşılaştırmaları ve diğer analizler.</p>
     </div>
-    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
-        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Önemli Bulgular</h3>
-        <div class="space-y-4">
-            <div class="bg-slate-100 dark:bg-slate-700 p-4 rounded-lg">
-                <p class="text-sm text-slate-500 dark:text-slate-400">Güven & Performans Korelasyonu</p>
-                <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ analytics.confidence_correlation or 'Hesaplanamadı' }}</p>
-                <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">1'e yakın değerler, kendine güvenenlerin daha başarılı olduğunu gösterir.</p>
+
+    {# VERİ VAR MI KONTROLÜ #}
+    {% if analytics %}
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Genel Performans: İnsan vs. LLM (Ortalama Final Skor)</h3>
+        {# Chart.js için canvas elementi #}
+        <div class="relative h-72 w-full sm:h-80 md:h-96"> {# Yüksekliği ayarla #}
+            <canvas id="overallPerformanceChart"></canvas>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Katılımcı Performansı (Unvana Göre Ortalama Final Skor)</h3>
+            {# Chart.js için canvas elementi #}
+            <div class="relative h-72 w-full sm:h-80 md:h-96"> {# Yüksekliği ayarla #}
+                <canvas id="performanceByProfessionChart"></canvas>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Önemli Bulgular</h3>
+            <div class="space-y-4">
+                <div class="bg-slate-100 dark:bg-slate-700 p-4 rounded-lg">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Güven & Performans Korelasyonu (Pearson R)</p>
+                    {% if analytics.confidence_correlation is not none %}
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ analytics.confidence_correlation }}</p>
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                            {% if analytics.confidence_correlation > 0.5 %} Güçlü pozitif ilişki.
+                            {% elif analytics.confidence_correlation > 0.1 %} Zayıf pozitif ilişki.
+                            {% elif analytics.confidence_correlation < -0.1 %} Zayıf negatif ilişki.
+                            {% else %} Belirgin bir ilişki yok.
+                            {% endif %} (Hesaplama >0 skor/güven içerir.)
+                        </p>
+                    {% else %}
+                         <p class="text-lg font-semibold text-slate-500 dark:text-slate-400">Hesaplanamadı</p>
+                         <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Yeterli veri yok veya skorlar hesaplanmamış.</p>
+                    {% endif %}
+                </div>
+                 <div class="bg-slate-100 dark:bg-slate-700 p-4 rounded-lg">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Ortalama İnsan Skoru</p>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ analytics.summary.avg_human_score }}/100</p>
+                </div>
+                 <div class="bg-slate-100 dark:bg-slate-700 p-4 rounded-lg">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Ortalama Güven Skoru</p>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ analytics.summary.avg_confidence }}/100</p>
+                     <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">(Boş bırakılanlar hariç)</p>
+                </div>
             </div>
         </div>
     </div>
-</div>
+        {# VERİ KONTROLÜ SONU #}
 
+    {% else %}
+        {# Veri yoksa veya hata varsa gösterilecek mesaj #}
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-6 rounded-xl mb-8">
+            <p class="text-yellow-800 dark:text-yellow-400">Bu araştırma için henüz bilimsel analiz üretilemiyor. Yeterli veri olmayabilir, skorlar henüz hesaplanmamış olabilir veya analiz sırasında bir hata oluşmuş olabilir.</p>
+        </div>
+    {% endif %}
+
+</div> {# Max Width Kapatma #}
+{% endblock %}
+
+
+{# Scripts bloğu admin_content bloğunun DIŞINDA olmalı #}
+{% block scripts %}
+{# Chart.js Kütüphanesini Yükle - BU SATIR EKLENDİ #}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
-    const analytics = {{ analytics | tojson }};
+    document.addEventListener('DOMContentLoaded', function() {
+        // Python'dan gelen veriyi al, eğer yoksa boş obje ata
+        const analyticsData = {{ analytics | tojson | default('{}') | safe }};
 
-    // Genel Performans Grafiği
-    new Chart(document.getElementById('overallPerformanceChart'), {
-        type: 'bar',
-        data: {
-            labels: analytics.overall_performance.labels,
-            datasets: [{
-                label: 'Ortalama Skor (100 üzerinden)',
-                data: analytics.overall_performance.data,
-                backgroundColor: analytics.overall_performance.labels.map(label => label.includes('İnsan') ? '#3B82F6' : '#6B7280'),
-            }]
+        // Eğer veri yoksa veya hata varsa grafikleri çizme
+        if (!analyticsData || Object.keys(analyticsData).length === 0) {
+            console.warn("Analiz verisi bulunamadı, grafikler çizilmeyecek.");
+            return;
         }
-    });
+        
+        // Renk paleti
+        const colors = {
+            human: '#3B82F6', // Mavi
+            llm: '#6B7280',   // Gri
+            profession: '#10B981' // Yeşil
+        };
+        const isDarkMode = document.documentElement.classList.contains('dark');
+        const gridColor = isDarkMode ? 'rgba(100, 116, 139, 0.2)' : 'rgba(203, 213, 225, 0.5)'; // slate-700/20 vs slate-300/50
+        const labelColor = isDarkMode ? '#cbd5e1' : '#475569'; // slate-300 vs slate-600
 
-    // Unvanlara Göre Performans Grafiği
-    new Chart(document.getElementById('performanceByProfessionChart'), {
-        type: 'bar',
-        data: {
-            labels: analytics.performance_by_profession.labels,
-            datasets: [{
-                label: 'Ortalama Skor',
-                data: analytics.performance_by_profession.data,
-                backgroundColor: '#10B981',
-            }]
-        },
-        options: { indexAxis: 'y' }
+        // 1. Genel Performans Grafiği
+        const overallCtx = document.getElementById('overallPerformanceChart');
+        if (overallCtx && analyticsData.overall_performance && analyticsData.overall_performance.labels && analyticsData.overall_performance.data) {
+            new Chart(overallCtx, {
+                type: 'bar',
+                data: {
+                    labels: analyticsData.overall_performance.labels,
+                    datasets: [{
+                        label: 'Ortalama Final Skor (100 üzerinden)',
+                        data: analyticsData.overall_performance.data,
+                        backgroundColor: analyticsData.overall_performance.labels.map(label => label.toLowerCase().includes('insan') ? colors.human : colors.llm),
+                        borderRadius: 4,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                     responsive: true,
+                     maintainAspectRatio: false, // Yüksekliği div belirlesin
+                     scales: { 
+                         y: { 
+                             beginAtZero: true, 
+                             max: 100,
+                             grid: { color: gridColor },
+                             ticks: { color: labelColor }
+                         },
+                         x: {
+                             grid: { display: false }, // X ekseni grid çizgilerini gizle
+                             ticks: { color: labelColor }
+                         }
+                     },
+                     plugins: {
+                         legend: { display: false } // Göstergeyi gizle (tek dataset var)
+                     }
+                }
+            });
+        } else {
+             console.warn("Genel performans grafiği için veri bulunamadı.");
+        }
+
+        // 2. Unvanlara Göre Performans Grafiği
+        const professionCtx = document.getElementById('performanceByProfessionChart');
+         if (professionCtx && analyticsData.performance_by_profession && analyticsData.performance_by_profession.labels && analyticsData.performance_by_profession.data) {
+            new Chart(professionCtx, {
+                type: 'bar',
+                data: {
+                    labels: analyticsData.performance_by_profession.labels,
+                    datasets: [{
+                        label: 'Ortalama Final Skor',
+                        data: analyticsData.performance_by_profession.data,
+                        backgroundColor: colors.profession,
+                        borderRadius: 4,
+                        borderWidth: 0
+                    }]
+                },
+                options: { 
+                    indexAxis: 'y', // Barları yatay yapar
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        x: { 
+                            beginAtZero: true, 
+                            max: 100, // X ekseni 100'e kadar
+                            grid: { color: gridColor },
+                            ticks: { color: labelColor }
+                        }, 
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: labelColor }
+                        }
+                    },
+                    plugins: {
+                         legend: { display: false } 
+                     }
+                 } 
+            });
+        } else {
+             console.warn("Unvanlara göre performans grafiği için veri bulunamadı.");
+        }
     });
 </script>
 {% endblock %}

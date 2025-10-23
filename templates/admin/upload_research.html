@@ -1,19 +1,19 @@
-{% extends "admin/admin_layout_new.html" %}
+{% extends "admin/admin_layout.html" %}
 
 {% block title %}Yeni Araştırma Yükle{% endblock %}
 
 {% block admin_content %}
 <div class="mb-8">
-    <h2 class="text-3xl font-bold text-slate-900">Toplu Vaka Yükleme (.json)</h2>
-    <p class="text-slate-500 mt-1">Bir araştırmayı ve ona ait tüm vakaları tek bir JSON dosyasıyla sisteme yükleyin.</p>
+    <h2 class="text-3xl font-bold text-slate-900 dark:text-white">Toplu Vaka Yükleme (.json)</h2>
+    <p class="text-slate-500 dark:text-slate-400 mt-1">Bir araştırmayı ve ona ait tüm vakaları tek bir JSON dosyasıyla sisteme yükleyin.</p>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-    <div class="bg-white p-8 rounded-xl shadow-lg">
+    <div class="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg">
         <form action="{{ url_for('upload_json') }}" method="post">
             <div class="mb-4">
-                <label for="json_text" class="block text-sm font-semibold text-slate-700 mb-2">JSON Metnini Buraya Yapıştırın:</label>
-                <textarea name="json_text" id="json_text" rows="15" placeholder='{ "research_title": "...", "cases": [ ... ] }' class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 font-mono text-sm"></textarea>
+                <label for="json_text" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">JSON Metnini Buraya Yapıştırın:</label>
+                <textarea name="json_text" id="json_text" rows="15" placeholder='{ "research_title": "...", "cases": [ ... ] }' class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 font-mono text-sm"></textarea>
             </div>
             <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition duration-200">
                 JSON ile Yükle ve Oluştur
@@ -21,10 +21,10 @@
         </form>
     </div>
 
-    <div class="bg-white p-8 rounded-xl shadow-lg">
-        <h3 class="font-bold text-slate-900 mb-4">Örnek JSON Formatı</h3>
-        <p class="text-sm text-slate-500 mb-4">Aşağıdaki yapıyı referans alarak kendi JSON dosyanızı oluşturabilirsiniz.</p>
-        <pre class="bg-slate-100 p-4 rounded-lg text-xs text-slate-700 overflow-x-auto"><code>{
+    <div class="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg">
+        <h3 class="font-bold text-slate-900 dark:text-white mb-4">Örnek JSON Formatı</h3>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Aşağıdaki yapıyı referans alarak kendi JSON dosyanızı oluşturabilirsiniz.</p>
+        <pre class="bg-slate-100 dark:bg-slate-700 p-4 rounded-lg text-xs text-slate-700 dark:text-slate-200 overflow-x-auto"><code>{
   "research_title": "Araştırmanızın Başlığı",
   "research_description": "Açıklama.",
   "cases": [
@@ -44,7 +44,11 @@
           "options": ["Seçenek 1", "Seçenek 2"]
         }
       ],
-      "gold_standard": { "q1_tani": "...", "q2_yaklasim": "..." }
+      "gold_standard": { "q1_tani": "...", "q2_yaklasim": "..." },
+      "llm_responses": {
+        "GPT-4": {"q1_tani": "...", "q2_yaklasim": "..."},
+        "Gemini-Pro": {"q1_tani": "...", "q2_yaklasim": "..."}
+      }
     }
   ]
 }</code></pre>

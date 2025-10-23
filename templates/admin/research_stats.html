@@ -1,14 +1,16 @@
-{% extends "admin/admin_layout_new.html" %}
-{% block title %}Araştırma İstatistikleri{% endblock %}
+{% extends "admin/admin_layout.html" %}
+{% block title %}Araştırma İstatistikleri: {{ research.title }}{% endblock %}
 
 {% block admin_content %}
 <div class="max-w-7xl mx-auto">
     <div class="mb-8">
-        <a href="{{ url_for('research_admin_dashboard', research_id=research.id) }}" class="text-blue-600 dark:text-blue-400">← Geri</a>
-        <h2 class="text-3xl font-bold text-slate-900 dark:text-white mt-2">{{ research.title }} - Bilimsel İstatistikler</h2>
+        <a href="{{ url_for('research_admin_dashboard', research_id=research.id) }}" class="text-blue-600 dark:text-blue-400 mb-4 inline-block">← Geri</a>
+        <h2 class="text-3xl font-bold text-slate-900 dark:text-white">{{ research.title }} - Katılımcı İstatistikleri</h2>
+        <p class="text-slate-500 dark:text-slate-400 mt-1">Bu araştırma özelindeki katılımcı demografileri ve yanıt metrikleri.</p>
     </div>
 
-    <!-- Temel Metrikler -->
+    {# VERİ VAR MI KONTROLÜ #}
+    {% if stats %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
             <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-400">Toplam Yanıt</h3>
@@ -28,19 +30,20 @@
         </div>
     </div>
 
-    <!-- Grafikler -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <!-- Meslek Dağılımı -->
-        {% if stats.profession_chart.labels %}
+        
+        {% if stats.profession_chart and stats.profession_chart.labels %}
         <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Katılımcı Meslek Dağılımı</h3>
             <div class="space-y-3">
                 {% for label, count in zip(stats.profession_chart.labels, stats.profession_chart.data) %}
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between text-sm">
                     <span class="text-slate-700 dark:text-slate-300">{{ label }}</span>
                     <div class="flex items-center gap-2">
+                        {# Division by zero kontrolü #}
+                        {% set percentage = (count * 100 / stats.total_responses) | round(0) if stats.total_responses > 0 else 0 %}
                         <div class="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-blue-500" style="width: {{ (count / stats.total_responses * 100) | round(0) }}%"></div>
+                            <div class="h-full bg-blue-500" style="width: {{ percentage }}%"></div>
                         </div>
                         <span class="font-semibold text-slate-900 dark:text-white w-8 text-right">{{ count }}</span>
                     </div>
@@ -50,17 +53,17 @@
         </div>
         {% endif %}
 
-        <!-- Unvanlara Göre Güven Skoru -->
-        {% if stats.confidence_by_profession.labels %}
+        {% if stats.confidence_by_profession and stats.confidence_by_profession.labels %}
         <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Meslek Başına Ortalama Güven Skoru</h3>
             <div class="space-y-3">
                 {% for label, score in zip(stats.confidence_by_profession.labels, stats.confidence_by_profession.data) %}
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between text-sm">
                     <span class="text-slate-700 dark:text-slate-300">{{ label }}</span>
                     <div class="flex items-center gap-2">
                         <div class="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-green-500" style="width: {{ score }}%"></div>
+                            {# Skor zaten % üzerinden olduğu için direkt kullanılır #}
+                            <div class="h-full bg-green-500" style="width: {{ score | round(0) }}%"></div> 
                         </div>
                         <span class="font-semibold text-slate-900 dark:text-white w-12 text-right">{{ score | round(1) }}</span>
                     </div>
@@ -70,17 +73,19 @@
         </div>
         {% endif %}
 
-        <!-- Deneyim vs. Karar Süresi -->
-        {% if stats.experience_vs_duration.labels %}
+        {% if stats.experience_vs_duration and stats.experience_vs_duration.labels %}
         <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Deneyim Yılı vs. Karar Süresi</h3>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Deneyim Kategorisine Göre Ortalama Karar Süresi</h3>
             <div class="space-y-3">
+                 {% set max_duration = (stats.experience_vs_duration.data | max) if stats.experience_vs_duration.data else 1 %}
+                 {% set max_duration = max_duration if max_duration > 0 else 1 %} {# Sıfıra bölmeyi engelle #}
                 {% for label, duration in zip(stats.experience_vs_duration.labels, stats.experience_vs_duration.data) %}
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between text-sm">
                     <span class="text-slate-700 dark:text-slate-300">{{ label }}</span>
                     <div class="flex items-center gap-2">
                         <div class="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-orange-500" style="width: {{ (duration / 300 * 100) | round(0) }}%"></div>
+                            {# Süreyi maksimum süreye oranla normalize et #}
+                            <div class="h-full bg-orange-500" style="width: {{ (duration * 100 / max_duration) | round(0) }}%"></div>
                         </div>
                         <span class="font-semibold text-slate-900 dark:text-white w-12 text-right">{{ duration | round(0) }}s</span>
                     </div>
@@ -90,17 +95,19 @@
         </div>
         {% endif %}
 
-        <!-- Güven Skoru Dağılımı -->
-        {% if stats.confidence_distribution.labels %}
+        {% if stats.confidence_distribution and stats.confidence_distribution.labels %}
         <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Güven Skoru Dağılımı</h3>
             <div class="space-y-3">
+                 {% set max_confidence_count = (stats.confidence_distribution.data | max) if stats.confidence_distribution.data else 1 %}
+                 {% set max_confidence_count = max_confidence_count if max_confidence_count > 0 else 1 %} {# Sıfıra bölmeyi engelle #}
                 {% for label, count in zip(stats.confidence_distribution.labels, stats.confidence_distribution.data) %}
-                <div class="flex items-center justify-between">
-                    <span class="text-slate-700 dark:text-slate-300">{{ label }}%</span>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-700 dark:text-slate-300">{{ label }}</span>
                     <div class="flex items-center gap-2">
                         <div class="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-purple-500" style="width: {{ (count / (stats.total_responses / 4) * 100) | round(0) }}%"></div>
+                             {# Sayıyı maksimum sayıya oranla normalize et #}
+                            <div class="h-full bg-purple-500" style="width: {{ (count * 100 / max_confidence_count) | round(0) }}%"></div>
                         </div>
                         <span class="font-semibold text-slate-900 dark:text-white w-8 text-right">{{ count }}</span>
                     </div>
@@ -111,15 +118,21 @@
         {% endif %}
     </div>
 
-    <!-- Açıklamalar -->
     <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-6 rounded-xl">
         <h3 class="font-semibold text-blue-900 dark:text-blue-100 mb-2">📊 İstatistik Açıklamaları</h3>
-        <ul class="text-blue-800 dark:text-blue-200 space-y-1 text-sm">
-            <li>• <strong>Ortalama Güven:</strong> Katılımcıların kararlarına ne kadar güven duydukları (1-100 ölçeği)</li>
-            <li>• <strong>Meslek Başına Güven:</strong> Farklı unvanlardaki hekimlerin güven düzeylerinin karşılaştırması</li>
-            <li>• <strong>Deneyim vs. Süre:</strong> Tecrübeliler vakaları daha mı hızlı çözüyor?</li>
-            <li>• <strong>Güven Dağılımı:</strong> Katılımcıların genel olarak kararlarından ne kadar emin oldukları</li>
+        <ul class="text-blue-800 dark:text-blue-200 space-y-1 text-sm list-disc list-inside">
+            <li><strong>Ortalama Güven:</strong> Katılımcıların kararlarına ne kadar güven duydukları (1-100 ölçeği, 0=Boş bırakılmış).</li>
+            <li><strong>Meslek Başına Güven:</strong> Farklı unvanlardaki hekimlerin ortalama güven düzeyleri.</li>
+            <li><strong>Deneyim vs. Süre:</strong> Farklı deneyim kategorilerindeki katılımcıların vakaları ortalama çözme süreleri.</li>
+            <li><strong>Güven Dağılımı:</strong> Katılımcıların yanıt verirken belirttikleri güven skorlarının hangi aralıklarda yoğunlaştığı.</li>
         </ul>
     </div>
+    {% else %}
+         <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-6 rounded-xl mb-8">
+            <p class="text-yellow-800 dark:text-yellow-400">Bu araştırma için henüz istatistik üretilemiyor. Yeterli veri olmayabilir veya hesaplama sırasında bir hata oluşmuş olabilir.</p>
+        </div>
+    {% endif %}
+    {# VERİ KONTROLÜ SONU #}
+
 </div>
 {% endblock %}

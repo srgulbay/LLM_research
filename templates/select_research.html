@@ -1,27 +1,31 @@
-{% extends "layout_new.html" %}
+{% extends "layout.html" %}
 
 {% block title %}Araştırma Seçimi{% endblock %}
 
 {% block content %}
-<section class="content-card">
-    <h2>Mevcut Araştırmalar</h2>
-    <p class="subtitle">Lütfen katılmak istediğiniz araştırmayı seçin.</p>
-    
-    <div class="case-list">
-        {# Backend'den gelen her bir araştırma için bir link oluştur #}
+<div class="max-w-3xl mx-auto">
+    <div class="text-center mb-8">
+        <h2 class="text-3xl font-bold text-slate-900 dark:text-white">Mevcut Araştırmalar</h2>
+        <p class="text-slate-500 dark:text-slate-400 mt-2">Lütfen katılmak istediğiniz araştırmayı seçin.</p>
+    </div>
+
+    <div class="space-y-4">
         {% for research in researches %}
-            <a href="{{ url_for('research_dashboard', research_id=research.id) }}">
-                <span>
-                    <strong>{{ research.title }}</strong>
-                    <br>
-                    <small style="color: var(--light-text-color); font-weight: 400;">{{ research.description }}</small>
-                </span>
-                <span>&#8594;</span>
+            <a href="{{ url_for('research_dashboard', research_id=research.id) }}" 
+               class="block bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">{{ research.title }}</h3>
+                        <p class="text-slate-600 dark:text-slate-400 mt-1">{{ research.description }}</p>
+                    </div>
+                    <span class="text-blue-500 dark:text-blue-400 font-bold text-2xl">&rarr;</span>
+                </div>
             </a>
         {% else %}
-            {# Eğer sistemde hiç araştırma yoksa bu mesajı göster #}
-            <p>Sistemde şu anda aktif bir araştırma bulunmuyor. Lütfen daha sonra tekrar kontrol edin.</p>
+            <div class="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg text-center">
+                <p class="text-slate-600 dark:text-slate-400">Sistemde şu anda aktif bir araştırma bulunmuyor. Lütfen daha sonra tekrar kontrol edin.</p>
+            </div>
         {% endfor %}
     </div>
-</section>
+</div>
 {% endblock %}

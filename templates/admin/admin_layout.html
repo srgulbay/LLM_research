@@ -1,29 +1,42 @@
-{% extends "layout_new.html" %}
+{% extends "layout.html" %}
 
+{# 'content' bloğunu override ederek yönetici paneli için 2 sütunlu yapıyı kuruyoruz #}
 {% block content %}
-<style>
-    /* Yönetici paneline özel stiller */
-    .admin-wrapper { display: grid; grid-template-columns: 240px 1fr; gap: 2rem; }
-    .admin-sidebar { background-color: var(--card-background-color); border-radius: var(--border-radius); padding: 1.5rem; border: 1px solid var(--border-color); height: fit-content; }
-    .admin-sidebar a { display: block; padding: 0.75rem 1rem; text-decoration: none; color: var(--secondary-color); font-weight: 600; border-radius: 0.5rem; margin-bottom: 0.5rem; }
-    .admin-sidebar a.active, .admin-sidebar a:hover { background-color: #F0F9FF; color: var(--primary-color); }
-    .admin-main-content .content-card:first-child { margin-top: 0; }
-</style>
-
-<div class="admin-wrapper">
-    <aside class="admin-sidebar">
-        <h3 style="margin-top: 0; padding: 0 1rem;">Yönetim</h3>
-        <a href="{{ url_for('admin_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_dashboard' else '' }}">Ana Panel</a>
-        <a href="{{ url_for('upload_json') }}" class="{{ 'active' if request.endpoint == 'upload_json' else '' }}">+ Yeni Araştırma Yükle</a>
-        
-        <hr class="form-divider">
-        
-        <h3 style="padding: 0 1rem;">Sistem</h3>
-        <a href="{{ url_for('manage_llms') }}" class="{{ 'active' if request.endpoint == 'manage_llms' else '' }}">LLM Modelleri</a>
-        <a href="{{ url_for('export_csv') }}" class="{{ 'active' if request.endpoint == 'export_csv' else '' }}">Tüm Veriyi İndir</a>
+<div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-8">
+    
+    <aside class="md:col-span-1">
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-lg sticky top-24">
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white px-3 mb-2">Yönetim</h3>
+            <nav class="flex flex-col space-y-1">
+                <a href="{{ url_for('admin_dashboard') }}" 
+                   class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150
+                          {% if request.endpoint == 'admin_dashboard' %} bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-300 {% else %} text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 {% endif %}">
+                    Ana Panel
+                </a>
+                <a href="{{ url_for('upload_json') }}"
+                   class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150
+                          {% if request.endpoint == 'upload_json' %} bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-300 {% else %} text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 {% endif %}">
+                    Yeni Araştırma Yükle
+                </a>
+                
+                <hr class="my-2 border-slate-200 dark:border-slate-700">
+                
+                <a href="{{ url_for('manage_llms') }}"
+                   class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150
+                          {% if request.endpoint == 'manage_llms' %} bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-300 {% else %} text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 {% endif %}">
+                    LLM Modelleri
+                </a>
+                <a href="{{ url_for('export_csv') }}" 
+                   class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150
+                          text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100">
+                    Tüm Veriyi İndir
+                </a>
+            </nav>
+        </div>
     </aside>
 
-    <main class="admin-main-content">
+    <main class="md:col-span-3 lg:col-span-4">
+        {# Diğer yönetici sayfalarının içeriği bu bloğa gelecek #}
         {% block admin_content %}{% endblock %}
     </main>
 </div>

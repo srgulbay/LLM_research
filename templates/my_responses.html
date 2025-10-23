@@ -1,13 +1,36 @@
-<!doctype html>
-{% extends "layout_new.html" %}
+{% extends "layout.html" %}
 {% block title %}Yanıtlarım{% endblock %}
+
 {% block content %}
 <div class="max-w-4xl mx-auto">
-  <h2 class="text-2xl font-bold">Verdiğiniz Yanıtlar</h2>
-  {% if responses %}
-    <ul>{% for r in responses %}<li>{{ r.case.content.title }} — {{ r.scores.overall_score if r.scores else 'Hesaplanıyor' }}</li>{% endfor %}</ul>
-  {% else %}
-    <p>Henüz yanıt yok.</p>
-  {% endif %}
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-slate-900 dark:text-white">Verdiğiniz Yanıtlar</h2>
+        <p class="text-slate-500 dark:text-slate-400 mt-2">Geçmiş araştırmalarda verdiğiniz yanıtların özeti.</p>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+        <div class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% if responses %}
+                {% for r in responses %}
+                <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <p class="font-semibold text-slate-800 dark:text-slate-200">{{ r.case.research.title }}</p>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">Vaka: {{ r.case.content.title }}</p>
+                    </div>
+                    <div class="md:col-span-1 md:text-right">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">{{ r.created_at.strftime('%Y-%m-%d') }}</tarih>
+                        {% if r.scores %}
+                            <span class="text-lg font-bold text-blue-600 dark:text-blue-400 ml-4">{{ r.scores.final_score | round(1) }}/100</span>
+                        {% else %}
+                            <span class="text-sm font-semibold text-yellow-600 dark:text-yellow-400 ml-4">Puan Hesaplanıyor...</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="p-6 text-slate-600 dark:text-slate-400">Henüz yanıtladığınız bir vaka bulunmuyor.</p>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}

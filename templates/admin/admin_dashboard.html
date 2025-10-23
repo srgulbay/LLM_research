@@ -1,54 +1,63 @@
 {% extends "admin/admin_layout.html" %}
+
 {% block title %}Yönetici Ana Paneli{% endblock %}
 
 {% block admin_content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-    <div>
-        <h2 style="margin: 0;">Yönetici Ana Paneli</h2>
-        <p class="subtitle" style="margin: 0;">Tüm araştırmaları buradan yönetin.</p>
+<div class="mb-8">
+    <h2 class="text-3xl font-bold text-slate-900 dark:text-white">Yönetici Ana Paneli</h2>
+    <p class="text-slate-500 dark:text-slate-400 mt-1">Tüm araştırmaları buradan yönetin ve genel istatistikleri görüntüleyin.</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Toplam Katılımcı</p>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white">{{ stats.user_count }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Toplam Vaka</p>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white">{{ stats.case_count }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Toplam Yanıt</p>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white">{{ stats.response_count }}</p>
     </div>
 </div>
 
-<div class="score-breakdown" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 2rem;">
-    <div class="score-item"><h4>Toplam Katılımcı</h4><p class="score-value">{{ stats.user_count }}</p></div>
-    <div class="score-item"><h4>Toplam Vaka</h4><p class="score-value">{{ stats.case_count }}</p></div>
-    <div class="score-item"><h4>Toplam Yanıt</h4><p class="score-value">{{ stats.response_count }}</p></div>
+<div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+    <h3 class="text-lg font-bold text-slate-900 dark:text-white p-6">Araştırma Projeleri</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-slate-50 dark:bg-slate-700/50 border-y border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 uppercase">
+                <tr>
+                    <th class="px-6 py-3">Başlık</th>
+                    <th class="px-6 py-3">Durum</th>
+                    <th class="px-6 py-3 text-center">Vaka Sayısı</th>
+                    <th class="px-6 py-3 text-center">Yanıt Sayısı</th>
+                    <th class="px-6 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                {% for research in researches %}
+                <tr>
+                    <td class="px-6 py-4 font-semibold text-slate-900 dark:text-white">{{ research.title }}</td>
+                    <td class="px-6 py-4">
+                        {% if research.is_active %}
+                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-green-900/20 dark:text-green-300">Aktif</span>
+                        {% else %}
+                            <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-red-900/20 dark:text-red-300">Pasif</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-center text-slate-600 dark:text-slate-300">{{ research.cases | length }}</td>
+                    <td class="px-6 py-4 text-center text-slate-600 dark:text-slate-300">{{ (research.cases | map(attribute='responses') | sum(start=[])) | length }}</td>
+                    <td class="px-6 py-4 text-right">
+                        <a href="{{ url_for('research_admin_dashboard', research_id=research.id) }}" class="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">Yönet</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="px-6 py-4 text-center text-slate-500 dark:text-slate-400">Sistemde hiç araştırma bulunmuyor.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
-
-<section class="content-card">
-    <h3>Araştırma Projeleri</h3>
-    {% if researches %}
-        <div class="tablo-container" style="margin-top: 1.5rem;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Başlık</th>
-                        <th>Durum</th>
-                        <th>Vaka Sayısı</th>
-                        <th>Yanıt Sayısı</th>
-                        <th>İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for research in researches %}
-                    <tr>
-                        <td><strong>{{ research.title }}</strong></td>
-                        <td>
-                            {% if research.is_active %}<span style="color: var(--success-color);">Aktif</span>
-                            {% else %}<span style="color: var(--danger-color);">Pasif</span>{% endif %}
-                        </td>
-                        <td>{{ research.cases | length }}</td>
-                        <td>{{ (research.cases | map(attribute='responses') | sum(start=[])) | length }}</td>
-                        <td>
-                            <a href="{{ url_for('research_admin_dashboard', research_id=research.id) }}" class="button-sm">Yönetim Paneli</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <p style="margin-top: 1.5rem;">Sistemde hiç araştırma bulunmuyor.</p>
-    {% endif %}
-</section>
 {% endblock %}

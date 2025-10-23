@@ -9,3 +9,5 @@ redis
 rq
 Werkzeug
 pytest
+pandas
+Faker

@@ -13,6 +13,7 @@ import csv
 import io
 import random
 import datetime
+import time
 from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, flash, Response, session
@@ -124,6 +125,12 @@ class Case(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     research_id = db.Column(db.Integer, db.ForeignKey('research.id'), nullable=False)
     content = db.Column(db.JSON, nullable=True)
+
+    # --- YENİ SÜTUN ---
+    # Her LLM'in bu vaka için aldığı skorları saklar.
+    # Örnek: {"GPT-4": {"overall_score": 92.5, "question_scores": {"q1": 90}}, "Gemini-Pro": {...}}
+    llm_scores = db.Column(db.JSON, nullable=True)
+    # ---
 
     # --- DEĞİŞTİRİLDİ: backref yerine back_populates kullanılıyor ---
     responses = db.relationship('UserResponse', back_populates='case', lazy=True)
@@ -257,7 +264,8 @@ def research_setup_required(f):
 def select_research():
     """Kullanıcının katılacağı araştırmayı seçtiği ana sayfa."""
     researches = Research.query.filter_by(is_active=True).order_by(Research.id.desc()).all()
-    return render_template('select_research_new.html', researches=researches)
+    # DEĞİŞİKLİK:
+    return render_template('select_research.html', researches=researches) # _new kaldırıldı
 
 
 @app.route('/arastirma/<int:research_id>')
@@ -301,6 +309,7 @@ def research_dashboard(research_id):
 def completion_page(research_id):
     """Araştırma tamamlandığında gösterilecek teşekkür sayfası."""
     research = db.session.get(Research, research_id)
+    # Bu dosyanın içeriğini bir önceki adımda düzeltmiştik
     return render_template('completion.html', research=research)
 
 # --- 8. KULLANICI YÖNETİMİ ---
@@ -347,7 +356,8 @@ def giris():
 
         return redirect(url_for('select_research'))
 
-    return render_template('giris_new.html')
+    # DEĞİŞİKLİK:
+    return render_template('giris.html') # _new kaldırıldı
 
 @app.route('/consent', methods=['GET', 'POST'])
 @login_required
@@ -360,7 +370,8 @@ def consent():
         db.session.commit()
         return redirect(url_for('demographics'))
         
-    return render_template('consent.html')
+    # DEĞİŞİKLİK:
+    return render_template('consent.html') # _new kaldırıldı
 
 @app.route('/demographics', methods=['GET', 'POST'])
 @login_required
@@ -376,7 +387,8 @@ def demographics():
         db.session.commit()
         return redirect(url_for('select_research'))
         
-    return render_template('demographics.html')
+    # DEĞİŞİKLİK:
+    return render_template('demographics.html') # _new kaldırıldı
 
 @app.route('/logout')
 @login_required
@@ -391,7 +403,8 @@ def logout():
 @login_required
 def my_responses():
     responses = UserResponse.query.filter_by(user_id=current_user.id).order_by(UserResponse.created_at.desc()).all()
-    return render_template('my_responses.html', responses=responses)
+    # DEĞİŞİKLİK:
+    return render_template('my_responses.html', responses=responses) # _new kaldırıldı
 
 # --- 9. YÖNETİCİ PANELİ ---
 
@@ -416,7 +429,8 @@ def admin_login():
             return redirect(url_for('admin_login'))
 
     # GET isteği için, artık yöneticiye özel yeni giriş sayfasını göster
-    return render_template('admin/admin_login_new.html')
+    # DEĞİŞİKLİK:
+    return render_template('admin/admin_login.html') # _new kaldırıldı
 
 @app.route('/admin')
 @app.route('/admin/dashboard')
@@ -434,10 +448,8 @@ def admin_dashboard():
         'response_count': UserResponse.query.count(),
         'case_count': Case.query.count()
     }
-    # --- SADECE BU SATIRI GÜNCELLİYORUZ ---
-    # Eski: return render_template('admin/admin_dashboard.html', ...)
-    # Yeni:
-    return render_template('admin/admin_dashboard_new.html', researches=researches, stats=stats)
+    # --- DEĞİŞİKLİK: ---
+    return render_template('admin/admin_dashboard.html', researches=researches, stats=stats) # _new kaldırıldı
 
 @app.route('/admin/upload_csv', methods=['POST'])
 @login_required
@@ -482,9 +494,35 @@ def upload_json():
 
             for case_content in cases_data:
                 content = case_content if isinstance(case_content, dict) else {"raw": case_content}
+
+                # LLM'leri ve altın standardı al
+                llm_responses = content.get('llm_responses', {}) or {}
+                gold_standard = content.get('gold_standard', {}) or content.get('gold_standard_response', {}) or {}
+
+                case_llm_scores = {}
+                for llm_name, llm_answers in llm_responses.items():
+                    llm_question_scores = {}
+                    total_score = 0
+                    question_count = 0
+
+                    for q_id, gold_answer in (gold_standard.items() if isinstance(gold_standard, dict) else []):
+                        llm_answer = (llm_answers or {}).get(q_id, "")
+                        # Basit eşleşme mantığı (daha sonra get_semantic_score ile değiştirilebilir)
+                        try:
+                            score = 100 if str(llm_answer).strip().lower() == str(gold_answer).strip().lower() else 0
+                        except Exception:
+                            score = 0
+                        llm_question_scores[q_id] = score
+                        total_score += score
+                        question_count += 1
+
+                    overall_score = (total_score / question_count) if question_count > 0 else 0
+                    case_llm_scores[llm_name] = {"overall_score": round(overall_score, 2), "question_scores": llm_question_scores}
+
                 new_case = Case(
                     research_id=new_research.id,
-                    content=content
+                    content=content,
+                    llm_scores=case_llm_scores or None
                 )
                 db.session.add(new_case)
                 
@@ -498,8 +536,8 @@ def upload_json():
         # Başarılı yükleme sonrası ana yönetici paneline yönlendir
         return redirect(url_for('admin_dashboard')) 
     
-    # GET metodu ile sayfa ilk kez açıldığında, yeni şablonu göster
-    return render_template('admin/upload_research_new.html')
+    # DEĞİŞİKLİK:
+    return render_template('admin/upload_research.html') # _new kaldırıldı
 
 @app.route('/admin/export_csv')
 @login_required
@@ -707,7 +745,8 @@ def add_llm_response_to_case(case_id):
 @admin_required
 def manage_llms():
     llms = LLM.query.order_by(LLM.name).all()
-    return render_template('admin/manage_llms_new.html', llms=llms)
+    # DEĞİŞİKLİK:
+    return render_template('admin/manage_llms.html', llms=llms) # _new kaldırıldı
 
 @app.route('/admin/llm/ekle', methods=['POST'])
 @login_required
@@ -736,7 +775,8 @@ def add_llm():
 def manage_researches():
     """Mevcut tüm araştırmaları listeleyen sayfa."""
     researches = Research.query.order_by(Research.id.desc()).all()
-    return render_template('manage_researches.html', researches=researches)
+    # DEĞİŞİKLİK:
+    return render_template('admin/manage_researches.html', researches=researches) # _new kaldırıldı
 
 
 @app.route('/admin/arastirma/ekle', methods=['GET', 'POST'])
@@ -750,13 +790,13 @@ def add_research():
 
         if not title:
             flash('Lütfen geçerli bir başlık girin.', 'danger')
-            return render_template('add_edit_research.html', title=title, description=description)
+            return render_template('admin/research_admin_dashboard.html', title=title, description=description)
         
         # Aynı başlıkta bir araştırma olup olmadığını kontrol et
         existing_research = Research.query.filter_by(title=title).first()
         if existing_research:
             flash('Bu başlıkta bir araştırma zaten mevcut. Lütfen farklı bir başlık kullanın.', 'danger')
-            return render_template('add_edit_research.html', title=title, description=description)
+            return render_template('admin/research_admin_dashboard.html', title=title, description=description) # _new kaldırıldı
 
         new_research = Research(
             title=title,
@@ -769,7 +809,8 @@ def add_research():
         return redirect(url_for('manage_researches'))
     
     # GET request için boş formu göster
-    return render_template('add_edit_research.html')
+    # DEĞİŞİKLİK:
+    return render_template('admin/research_admin_dashboard.html') # _new kaldırıldı
 
 
 @app.route('/admin/arastirma/duzenle/<int:research_id>', methods=['GET', 'POST'])
@@ -791,14 +832,14 @@ def edit_research(research_id):
         # Başlık boşsa hata ver
         if not title:
             flash('Lütfen geçerli bir başlık girin.', 'danger')
-            return render_template('add_edit_research.html', research=research)
+            return render_template('admin/research_admin_dashboard.html', research=research)
 
         # Eğer başlık değiştiyse çakışma kontrolü
         if title != research.title:
             existing = Research.query.filter_by(title=title).first()
             if existing:
                 flash('Bu başlıkta başka bir araştırma zaten mevcut. Lütfen farklı bir başlık kullanın.', 'danger')
-                return render_template('add_edit_research.html', research=research)
+                return render_template('admin/research_admin_dashboard.html', research=research) # _new kaldırıldı
 
         research.title = title
         research.description = description
@@ -808,11 +849,10 @@ def edit_research(research_id):
         flash(f'"{research.title}" araştırması güncellendi.', 'success')
         return redirect(url_for('manage_researches'))
 
-    # --- DEĞİŞİKLİK: Araştırmaya ait vakaları da çekip şablona gönderiyoruz ---
     cases = Case.query.filter_by(research_id=research.id).all()
     
-    # GET request için dolu formu ve vaka listesini göster
-    return render_template('add_edit_research.html', research=research, cases=cases)
+    # DEĞİŞİKLİK:
+    return render_template('admin/research_admin_dashboard.html', research=research, cases=cases) # _new kaldırıldı
 
 @app.route('/admin/case/duzenle/<int:case_id>', methods=['GET', 'POST'])
 @login_required
@@ -828,7 +868,8 @@ def edit_case(case_id):
         # ...existing POST handling (güncelleme)...
         pass
 
-    return render_template('admin/edit_case_new.html', case=case)
+    # DEĞİŞİKLİK:
+    return render_template('admin/edit_case.html', case=case) # _new kaldırıldı
 
 @app.route('/admin/research/<int:research_id>/add_case')
 @login_required
@@ -885,7 +926,8 @@ def research_admin_dashboard(research_id):
         return redirect(url_for('research_admin_dashboard', research_id=research.id))
     
     cases = Case.query.filter_by(research_id=research.id).all()
-    return render_template('admin/research_admin_dashboard_new.html', research=research, cases=cases)
+    # DEĞİŞİKLİK:
+    return render_template('admin/research_admin_dashboard.html', research=research, cases=cases) # _new kaldırıldı
 
 @app.route('/admin/case/delete/<int:case_id>', methods=['POST'])
 @login_required
@@ -973,7 +1015,8 @@ def case_detail(case_id):
 
     # GET isteği - vakaları göster
     session[f'case_{case_id}_start_time'] = session.get(f'case_{case_id}_start_time', time.time())
-    return render_template('case_new.html', case=case)
+    # DEĞİŞİKLİK:
+    return render_template('case.html', case=case) # _new kaldırıldı
 
 @app.route('/arastirma/<int:research_id>/rapor')
 @login_required
@@ -992,7 +1035,8 @@ def final_report(research_id):
     ).order_by(Case.id).all()
 
     # Modernize edilmiş yeni rapor şablonunu kullan
-    return render_template('final_report_new.html', research=research, responses=responses)
+    # DEĞİŞİKLİK:
+    return render_template('final_report.html', research=research, responses=responses) # _new kaldırıldı
 
 # --- 12. KOMUT SATIRI TESTİ İÇİN ROTA ---
 import click
@@ -1336,58 +1380,97 @@ def research_dashboard_admin(research_id):
             'confidence_distribution': {'labels': [], 'data': []}
         }
 
-    return render_template('admin/research_stats_new.html', research=research, stats=stats)
+    return render_template('admin/research_stats.html', research=research, stats=stats) # _new kaldırıldı
 
-@app.route('/case/<int:case_id>', methods=['POST'])
+@app.route('/admin/research/<int:research_id>/analytics')
 @login_required
-@research_setup_required
-def submit_case(case_id):
-    """Kullanıcının vaka çözümünü kaydeder."""
-    case = db.session.get(Case, case_id)
-    if not case:
-        flash("Vaka bulunamadı.", "danger")
-        return redirect(url_for('select_research'))
-
-    research_id = case.research_id
+@admin_required
+def scientific_analytics(research_id):
+    """Bilimsel analiz ve karşılaştırma paneli - İnsan vs. LLM performansı."""
     research = db.session.get(Research, research_id)
+    if not research:
+        flash("Araştırma bulunamadı.", "danger")
+        return redirect(url_for('admin_dashboard'))
 
-    # Başlangıç zamanını session'dan al
-    start_time = session.get(f'case_{case_id}_start_time')
-    end_time = time.time()
-    duration = int(end_time - start_time) if start_time else 0
+    # Bu araştırmadaki tüm kullanıcı yanıtlarını çek
+    responses = UserResponse.query.join(Case).filter(Case.research_id == research_id).all()
+    if not responses:
+        flash("Bu araştırma için henüz analiz edilecek veri bulunmuyor.", "info")
+        return redirect(url_for('research_admin_dashboard', research_id=research_id))
 
-    # Tüm form verilerini yanıt olarak kaydet
-    answers = {}
-    for key in request.form.keys():
-        if key not in ['confidence_score', 'clinical_rationale', 'duration_seconds']:
-            answers[key] = request.form.get(key, '')
+    try:
+        # Pandas ile veri analizi
+        data = []
+        for r in responses:
+            user_score = r.scores.get('overall_score', 0) if r.scores else 0
+            row = {
+                'unvan': getattr(r.author, 'profession', 'Bilinmiyor'),
+                'deneyim': getattr(r.author, 'experience', 0) or 0,
+                'kullanici_skor': user_score,
+                'guven_skoru': r.confidence_score or 0
+            }
+            
+            # Her LLM'in skorunu satıra ekle
+            if r.case and r.case.llm_scores:
+                for llm_name, scores in r.case.llm_scores.items():
+                    row[f'llm_skor_{llm_name}'] = scores.get('overall_score', 0) if isinstance(scores, dict) else 0
+            
+            data.append(row)
 
-    # Yeni yanıt oluştur
-    user_response = UserResponse(
-        case_id=case_id,
-        user_id=current_user.id,
-        answers=answers,
-        # --- YENİ ALANLAR ---
-        confidence_score=int(request.form.get('confidence_score', 75)),
-        clinical_rationale=request.form.get('clinical_rationale', ''),
-        scores=None,  # İleriki puanlama için
-        # ---
-        duration_seconds=duration
-    )
-    db.session.add(user_response)
-    db.session.commit()
+        df = pd.DataFrame(data)
 
-    # Sonraki vakaya yönlendir veya final rapor göster
-    answered_subq = db.session.query(UserResponse.case_id).filter_by(user_id=current_user.id).distinct()
-    next_case = Case.query.filter(
-        Case.research_id == research_id,
-        Case.id.notin_(answered_subq)
-    ).first()
+        analytics = {}
 
-    if next_case:
-        session[f'case_{next_case.id}_start_time'] = time.time()
-        flash(f"Vakayı başarıyla kaydettiniz. Sıradaki vaka yükleniyor...", "success")
-        return redirect(url_for('case', case_id=next_case.id))
-    else:
-        flash("Araştırmayı başarıyla tamamladınız!", "success")
-        return redirect(url_for('final_report', research_id=research_id))
+        # 1. Genel Performans Karşılaştırması (İnsan vs. LLM'ler)
+        performance_labels = ['İnsan (Ortalama)']
+        performance_data = [round(df['kullanici_skor'].mean(), 2)]
+        
+        llm_cols = [col for col in df.columns if col.startswith('llm_skor_')]
+        for col in sorted(llm_cols):
+            llm_name = col.replace('llm_skor_', '')
+            performance_labels.append(llm_name)
+            performance_data.append(round(df[col].mean(), 2))
+
+        analytics['overall_performance'] = {
+            'labels': performance_labels,
+            'data': performance_data
+        }
+
+        # 2. Unvanlara Göre İnsan Performansı
+        if 'unvan' in df.columns:
+            perf_by_profession = df.groupby('unvan')['kullanici_skor'].mean().sort_values(ascending=False)
+            analytics['performance_by_profession'] = {
+                'labels': perf_by_profession.index.tolist(),
+                'data': [round(float(x), 2) for x in perf_by_profession.values.tolist()]
+            }
+        else:
+            analytics['performance_by_profession'] = {'labels': [], 'data': []}
+
+        # 3. Güven vs. Gerçek Performans (Korelasyon)
+        if 'guven_skoru' in df.columns and 'kullanici_skor' in df.columns:
+            if not df['guven_skoru'].isnull().all() and not df['kullanici_skor'].isnull().all():
+                correlation = float(df['guven_skoru'].corr(df['kullanici_skor']))
+                analytics['confidence_correlation'] = round(correlation, 3)
+            else:
+                analytics['confidence_correlation'] = None
+        else:
+            analytics['confidence_correlation'] = None
+
+        # 4. İstatistiksel Özetler
+        analytics['summary'] = {
+            'total_responses': len(responses),
+            'avg_human_score': round(float(df['kullanici_skor'].mean()), 2),
+            'avg_confidence': round(float(df['guven_skoru'].mean()), 2),
+            'avg_experience': round(float(df['deneyim'].mean()), 1)
+        }
+
+    except Exception as e:
+        print(f"Bilimsel analiz hatası: {e}")
+        analytics = {
+            'overall_performance': {'labels': [], 'data': []},
+            'performance_by_profession': {'labels': [], 'data': []},
+            'confidence_correlation': None,
+            'summary': {'total_responses': len(responses), 'avg_human_score': 0, 'avg_confidence': 0, 'avg_experience': 0}
+        }
+
+    return render_template('admin/scientific_analytics.html', research=research, analytics=analytics)

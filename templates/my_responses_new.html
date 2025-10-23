@@ -1,0 +1,13 @@
+<!doctype html>
+{% extends "layout_new.html" %}
+{% block title %}Yanıtlarım{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <h2 class="text-2xl font-bold">Verdiğiniz Yanıtlar</h2>
+  {% if responses %}
+    <ul>{% for r in responses %}<li>{{ r.case.content.title }} — {{ r.scores.overall_score if r.scores else 'Hesaplanıyor' }}</li>{% endfor %}</ul>
+  {% else %}
+    <p>Henüz yanıt yok.</p>
+  {% endif %}
+</div>
+{% endblock %}

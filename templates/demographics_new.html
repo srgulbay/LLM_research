@@ -1,0 +1,40 @@
+<!doctype html>
+{% extends "layout_new.html" %}
+{% block title %}Demografik Bilgiler{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg">
+        <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Katılımcı Bilgileri</h2>
+            <p class="text-slate-500 dark:text-slate-400 mt-2">Araştırmamıza katkı sağlamak için lütfen bilgilerinizi girin.</p>
+        </div>
+
+        <form method="POST" class="space-y-6">
+            <div>
+                <label for="profession" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Meslek</label>
+                <select id="profession" name="profession" required 
+                        class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="Pratisyen Hekim">Pratisyen Hekim</option>
+                    <option value="Aile Hekimi Uzmanı">Aile Hekimi Uzmanı</option>
+                    <option value="Çocuk Sağlığı ve Hastalıkları Uzmanı">Çocuk Sağlığı ve Hastalıkları Uzmanı</option>
+                    <option value="Tıp Öğrencisi">Tıp Öğrencisi</option>
+                    <option value="Diğer Hekim">Diğer Hekim</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="experience" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Mesleki Deneyim (Yıl)</label>
+                <input type="number" id="experience" name="experience" min="0" max="60" required placeholder="Örn: 5"
+                       class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div class="pt-2">
+                <button type="submit" 
+                        class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition duration-200">
+                    Kaydet ve Devam Et
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

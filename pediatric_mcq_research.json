@@ -1,0 +1,266 @@
+{
+  "research_title": "Pediatrik Enfeksiyonlarda Tanı ve Tedavi Yaklaşımları (Çoktan Seçmeli)",
+  "research_description": "Hekimlerin ve LLM'lerin 5 farklı pediatrik enfeksiyon vakasındaki tanısal ve terapötik karar verme süreçlerinin çoktan seçmeli sorularla karşılaştırılması.",
+  "cases": [
+    {
+      "title": "Vaka 1: Kulak Ağrısı ve Ateş",
+      "sections": [
+        {"title": "Hasta", "content": "20 aylık erkek."},
+        {"title": "Şikayet", "content": "3 gündür burun akıntısı, dün gece başlayan ateş (38.7°C) ve sağ kulağını çekiştirme. Huzursuzluk artmış."},
+        {"title": "Fizik Muayene", "content": "Ateş: 38.5°C. Ağlamaklı. Sol kulak zarı doğal. Sağ kulak zarı belirgin hiperemik, bombeleşmiş, ışık refleksi kaybolmuş."}
+      ],
+      "questions": [
+        {
+          "id": "q1_c1_diag",
+          "type": "multiple-choice",
+          "label": "1. Bu bulgularla en olası tanınız nedir?",
+          "options": [
+            "Akut Otitis Media (AOM)",
+            "Otitis Media with Effusion (OME)",
+            "Dış Kulak Yolu Enfeksiyonu (Otitis Eksterna)",
+            "Viral Üst Solunum Yolu Enfeksiyonu (ÜSYE)"
+          ]
+        },
+        {
+          "id": "q2_c1_test",
+          "type": "multiple-choice",
+          "label": "2. Bu aşamada en uygun yaklaşımınız hangisidir?",
+          "options": [
+            "Ek tetkik gerekmez, tedavi başlanır.",
+            "Timpanometri yapılır.",
+            "Kan sayımı ve CRP istenir.",
+            "Kulak kültürü alınır."
+          ]
+        },
+        {
+          "id": "q3_c1_treat",
+          "type": "multiple-choice",
+          "label": "3. İlk tercih antibiyotik tedaviniz hangisidir?",
+          "options": [
+            "Yüksek doz Amoksisilin",
+            "Azitromisin",
+            "Sefiksim",
+            "Antibiyotik gerekmez, ağrı kesici yeterlidir."
+          ]
+        }
+      ],
+      "gold_standard": {
+        "q1_c1_diag": "Akut Otitis Media (AOM)",
+        "q2_c1_test": "Ek tetkik gerekmez, tedavi başlanır.",
+        "q3_c1_treat": "Yüksek doz Amoksisilin"
+      },
+      "llm_responses": {
+        "GPT-4": {"answers":{"q1_c1_diag": "Akut Otitis Media (AOM)", "q2_c1_test": "Ek tetkik gerekmez, tedavi başlanır.", "q3_c1_treat": "Yüksek doz Amoksisilin"},"confidence_score": 95,"rationale": "Bulgular AOM için klasik."},
+        "Gemini-Pro": {"answers":{"q1_c1_diag": "Akut Otitis Media (AOM)", "q2_c1_test": "Ek tetkik gerekmez, tedavi başlanır.", "q3_c1_treat": "Yüksek doz Amoksisilin"},"confidence_score": 90,"rationale": "Klinik AOM ile uyumlu."}
+      }
+    },
+    {
+      "title": "Vaka 2: Boğaz Ağrısı ve Eksüda",
+      "sections": [
+         {"title": "Hasta", "content": "8 yaşında kız."},
+         {"title": "Şikayet", "content": "2 gündür boğaz ağrısı, ateş (39°C), baş ağrısı ve yutkunma güçlüğü. Karın ağrısı da eşlik ediyor. Öksürük yok."},
+         {"title": "Fizik Muayene", "content": "Ateş: 38.8°C. Tonsiller hiperemik, şiş ve üzerinde beyaz eksüdalar mevcut. Ön servikal hassas lenfadenopatiler var. Damakta peteşiler görülüyor."}
+      ],
+      "questions": [
+        {
+          "id": "q1_c2_diag",
+          "type": "multiple-choice",
+          "label": "1. Klinik bulgulara göre en olası etken nedir?",
+          "options": [
+            "Grup A Streptokok (GAS)",
+            "Adenovirüs",
+            "Epstein-Barr Virüs (EBV)",
+            "Rinovirüs"
+          ]
+        },
+        {
+          "id": "q2_c2_test",
+          "type": "multiple-choice",
+          "label": "2. Tanıyı doğrulamak için ilk yapılması gereken test hangisidir?",
+          "options": [
+            "Hızlı Antijen Testi (Strep Testi)",
+            "Boğaz Kültürü",
+            "Tam Kan Sayımı ve Periferik Yayma",
+            "Monospot Testi"
+          ]
+        },
+        {
+          "id": "q3_c2_treat",
+          "type": "multiple-choice",
+          "label": "3. GAS farenjiti tanısı kesinleşirse en uygun tedavi süresi nedir?",
+          "options": [
+            "10 gün",
+            "5 gün",
+            "7 gün",
+            "3 gün"
+          ]
+        }
+      ],
+      "gold_standard": {
+        "q1_c2_diag": "Grup A Streptokok (GAS)",
+        "q2_c2_test": "Hızlı Antijen Testi (Strep Testi)",
+        "q3_c2_treat": "10 gün"
+      },
+       "llm_responses": {
+        "GPT-4": {"answers":{"q1_c2_diag": "Grup A Streptokok (GAS)", "q2_c2_test": "Hızlı Antijen Testi (Strep Testi)", "q3_c2_treat": "10 gün"},"confidence_score": 98,"rationale": "Centor kriterleri yüksek."},
+        "Gemini-Pro": {"answers":{"q1_c2_diag": "Grup A Streptokok (GAS)", "q2_c2_test": "Hızlı Antijen Testi (Strep Testi)", "q3_c2_treat": "10 gün"},"confidence_score": 92,"rationale": "GAS farenjiti ile uyumlu tablo."}
+      }
+    },
+    {
+      "title": "Vaka 3: Öksürük ve Hızlı Solunum",
+      "sections": [
+        {"title": "Hasta", "content": "4 yaşında erkek."},
+        {"title": "Şikayet", "content": "3 gündür devam eden ateş (38.5°C), prodüktif öksürük ve hızlı nefes alıp verme. İştahsızlık ve halsizlik."},
+        {"title": "Fizik Muayene", "content": "Ateş: 38.2°C. Solunum sayısı: 45/dk. Takipneik. Oskültasyonda sağ akciğer alt zonda krepitan raller ve solunum seslerinde azalma duyuluyor. Oksijen saturasyonu %94."}
+      ],
+      "questions": [
+        {
+          "id": "q1_c3_diag",
+          "type": "multiple-choice",
+          "label": "1. Bu klinik tablo ile en olası tanınız nedir?",
+          "options": [
+            "Toplum Kökenli Pnömoni (TKP)",
+            "Akut Bronşiolit",
+            "Astım Atağı",
+            "Viral Krup (Laringotrakeobronşit)"
+          ]
+        },
+        {
+          "id": "q2_c3_test",
+          "type": "multiple-choice",
+          "label": "2. Ayaktan tedavi planlanan bu hasta için hangi tetkik öncelikle gereklidir?",
+          "options": [
+            "Akciğer Grafisi (PA)",
+            "Tam Kan Sayımı ve CRP",
+            "Balgam kültürü",
+            "Kan kültürü"
+            ]
+        },
+        {
+          "id": "q3_c3_treat",
+          "type": "multiple-choice",
+          "label": "3. Ayaktan tedavi edilecek tipik bakteriyel pnömoni şüphesinde ilk tercih antibiyotik hangisidir?",
+          "options": [
+            "Amoksisilin",
+            "Makrolid (örn: Azitromisin)",
+            "Seftriakson (IM)",
+            "Sadece Oseltamivir"
+          ]
+        }
+      ],
+      "gold_standard": {
+        "q1_c3_diag": "Toplum Kökenli Pnömoni (TKP)",
+        "q2_c3_test": "Akciğer Grafisi (PA)",
+        "q3_c3_treat": "Amoksisilin"
+      },
+       "llm_responses": {
+        "GPT-4": {"answers":{"q1_c3_diag": "Toplum Kökenli Pnömoni (TKP)", "q2_c3_test": "Akciğer Grafisi (PA)", "q3_c3_treat": "Amoksisilin"},"confidence_score": 90,"rationale": "Fokal bulgular ve takipne pnömoniyi destekliyor."},
+        "Gemini-Pro": {"answers":{"q1_c3_diag": "Toplum Kökenli Pnömoni (TKP)", "q2_c3_test": "Akciğer Grafisi (PA)", "q3_c3_treat": "Amoksisilin"},"confidence_score": 88,"rationale": "Pnömoni kliniği mevcut."}
+      }
+    },
+    {
+      "title": "Vaka 4: Ateş ve Topallama",
+      "sections": [
+        {"title": "Hasta", "content": "5 yaşında erkek."},
+        {"title": "Şikayet", "content": "2 gündür sol kalça ağrısı ve topallama. Travma öyküsü yok. Ateşi 38.6°C ölçülmüş. 1 hafta önce hafif bir ÜSYE geçirmiş."},
+        {"title": "Fizik Muayene", "content": "Ateş: 38.4°C. Yürürken sol bacağına yük vermekten kaçınıyor. Sol kalça eklemi hareketleri, özellikle iç rotasyon, ağrılı ve kısıtlı. Eklemde belirgin şişlik veya kızarıklık yok. Diğer eklemler normal."}
+      ],
+      "questions": [
+        {
+          "id": "q1_c4_diag",
+          "type": "multiple-choice",
+          "label": "1. Bu yaş grubunda ve klinik tabloda en sık görülen tanı hangisidir?",
+          "options": [
+            "Geçici (Toksik) Sinovit",
+            "Septik Artrit",
+            "Juvenil İdiopatik Artrit (JİA)",
+            "Legg-Calve-Perthes Hastalığı"
+          ]
+        },
+        {
+          "id": "q2_c4_test",
+          "type": "multiple-choice",
+          "label": "2. Septik artriti dışlamak/değerlendirmek için en önemli ve öncelikli tetkik hangisidir?",
+          "options": [
+            "Kalça Ultrasonografisi ve gerekirse Artrosentez (Eklem ponksiyonu)",
+            "Tam Kan Sayımı, CRP, Sedimantasyon",
+            "Kalça Grafisi (AP/Lauenstein)",
+            "Kan Kültürü"
+          ]
+        },
+        {
+          "id": "q3_c4_treat",
+          "type": "multiple-choice",
+          "label": "3. Eğer tetkikler septik artrit tanısını dışlar ve geçici sinovit düşünülürse en uygun yaklaşım nedir?",
+          "options": [
+            "Non-steroid anti-inflamatuar ilaç (NSAID) ve istirahat",
+            "Ampirik antibiyotik tedavisi",
+            "Fizik tedaviye yönlendirme",
+            "Eklem içi steroid enjeksiyonu"
+          ]
+        }
+      ],
+      "gold_standard": {
+        "q1_c4_diag": "Geçici (Toksik) Sinovit",
+        "q2_c4_test": "Kalça Ultrasonografisi ve gerekirse Artrosentez (Eklem ponksiyonu)",
+        "q3_c4_treat": "Non-steroid anti-inflamatuar ilaç (NSAID) ve istirahat"
+      },
+      "llm_responses": {
+        "GPT-4": {"answers":{"q1_c4_diag": "Geçici (Toksik) Sinovit", "q2_c4_test": "Kalça Ultrasonografisi ve gerekirse Artrosentez (Eklem ponksiyonu)", "q3_c4_treat": "Non-steroid anti-inflamatuar ilaç (NSAID) ve istirahat"},"confidence_score": 85,"rationale": "Sık görülür, septik artrit dışlanmalı."},
+        "Gemini-Pro": {"answers":{"q1_c4_diag": "Geçici (Toksik) Sinovit", "q2_c4_test": "Kalça Ultrasonografisi ve gerekirse Artrosentez (Eklem ponksiyonu)", "q3_c4_treat": "Non-steroid anti-inflamatuar ilaç (NSAID) ve istirahat"},"confidence_score": 80,"rationale": "Öncelikle toksik sinovit düşünülür."}
+      }
+    },
+    {
+      "title": "Vaka 5: Uzamış Ateş ve Belirgin Bulgular",
+      "sections": [
+        {"title": "Hasta", "content": "3 yaşında kız."},
+        {"title": "Şikayet", "content": "6 gündür devam eden yüksek ateş (39-40°C). Ateş düşürücülere yanıtı az. Çok huzursuz. Dudakları kırmızı ve çatlak, gözleri kanlanmış. Boynunda şişlik var. 2 gün önce gövdesinde döküntü başlamış."},
+        {"title": "Fizik Muayene", "content": "Ateş: 39.5°C. İrritabl. Bilateral non-pürülan konjonktivit. Kuru, çatlak, kırmızı dudaklar. Çilek dili. Sol servikal 2 cm LAP. Gövdede makülopapüler döküntü. El ve ayak sırtlarında hafif ödem ve eritem."}
+      ],
+      "questions": [
+        {
+          "id": "q1_c5_diag",
+          "type": "multiple-choice",
+          "label": "1. Bu klasik bulgularla en olası tanı nedir?",
+          "options": [
+            "Kawasaki Hastalığı",
+            "Kızıl",
+            "Enfeksiyöz Mononükleoz (EBV)",
+            "Stevens-Johnson Sendromu"
+          ]
+        },
+        {
+          "id": "q2_c5_comp",
+          "type": "multiple-choice",
+          "label": "2. Bu hastalığın en önemli ve korkulan komplikasyonu nedir?",
+          "options": [
+            "Koroner arter anevrizmaları",
+            "Menenjit",
+            "Karaciğer yetmezliği",
+            "Böbrek yetmezliği"
+          ]
+        },
+        {
+          "id": "q3_c5_treat",
+          "type": "multiple-choice",
+          "label": "3. Tanı konulduğunda standart tedavi yaklaşımı nedir?",
+          "options": [
+            "IVIG (Intravenöz İmmünglobulin) + Yüksek doz Aspirin",
+            "Sadece yüksek doz Aspirin",
+            "Antibiyotik (örn: Penisilin)",
+            "Kortikosteroidler"
+          ]
+        }
+      ],
+      "gold_standard": {
+        "q1_c5_diag": "Kawasaki Hastalığı",
+        "q2_c5_comp": "Koroner arter anevrizmaları",
+        "q3_c5_treat": "IVIG (Intravenöz İmmünglobulin) + Yüksek doz Aspirin"
+      },
+      "llm_responses": {
+        "GPT-4": {"answers":{"q1_c5_diag": "Kawasaki Hastalığı", "q2_c5_comp": "Koroner arter anevrizmaları", "q3_c5_treat": "IVIG (Intravenöz İmmünglobulin) + Yüksek doz Aspirin"},"confidence_score": 99,"rationale": "Kawasaki için tanı kriterlerini karşılıyor."},
+        "Gemini-Pro": {"answers":{"q1_c5_diag": "Kawasaki Hastalığı", "q2_c5_comp": "Koroner arter anevrizmaları", "q3_c5_treat": "IVIG (Intravenöz İmmünglobulin) + Yüksek doz Aspirin"},"confidence_score": 97,"rationale": "Klasik Kawasaki prezantasyonu."}
+      }
+    }
+  ]
+}

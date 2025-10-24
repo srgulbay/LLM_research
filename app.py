@@ -79,17 +79,65 @@ else:
 model = None
 try:
     api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key or api_key.startswith("AIzaSy"): # Başlangıç değerini kontrol et
-        print("UYARI: Geçerli bir GEMINI_API_KEY bulunamadı. .env dosyanızı kontrol edin.")
+
+    if not api_key:
+        print("UYARI: GEMINI_API_KEY bulunamadı. .env dosyanızı kontrol edin.")
     else:
+        # 'import genai' satırı kaldırıldı — başta import edilen `genai` kullanılıyor
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash', # Model adını güncelledik
-            generation_config={"response_mime_type": "application/json"}
-        )
-        print("Gemini API (gemini-1.5-flash) başarıyla yapılandırıldı.")
+
+        # Mevcut modelleri listeleyip uygun bir Gemini modeli seçmeye çalış
+        available_models = []
+        try:
+            models_list = genai.list_models()  # client'ın sunduğu listeleme fonksiyonunu kullan
+            for m in models_list:
+                # m dict ya da obj olabilir; name/ID almaya çalış
+                name = None
+                if isinstance(m, dict):
+                    name = m.get('name') or m.get('id')
+                else:
+                    name = getattr(m, 'name', None) or getattr(m, 'id', None) or str(m)
+                if name:
+                    available_models.append(name)
+        except Exception as e:
+            print(f"UYARI: Modeller listelenemedi: {e}")
+
+        print("Bulunan modeller:", available_models)
+
+        # Tercih edilen model adları (sıralı)
+        preferred_candidates = [
+            "gemini-1.5-flash",
+            "gemini-1.5",
+            "gemini-pro",
+            "models/gemini-1.5-flash",
+            "models/gemini-pro"
+        ]
+
+        chosen_model = None
+        for cand in preferred_candidates:
+            for m in available_models:
+                if cand in m:
+                    chosen_model = m
+                    break
+            if chosen_model:
+                break
+
+        if not chosen_model and available_models:
+            chosen_model = available_models[0]
+
+        if not chosen_model:
+            print("UYARI: Uygun bir model bulunamadı; model objesi oluşturulmayacak.")
+            model = None
+        else:
+            print(f"Seçilen model: {chosen_model}")
+            model = genai.GenerativeModel(
+                model_name=chosen_model,
+                generation_config={"response_mime_type": "application/json"}
+            )
+            print(f"Gemini API ({chosen_model}) başarıyla yapılandırıldı.")
 except Exception as e:
     print(f"HATA: Gemini API yapılandırılamadı: {e}")
+    model = None
 
 # --- 5. VERİTABANI MODELLERİ ---
 class LLM(db.Model):
@@ -933,6 +981,46 @@ def delete_case(case_id):
         
     return redirect(url_for('research_admin_dashboard', research_id=research_id))
 
+@app.route('/admin/research/delete/<int:research_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_research(research_id):
+    """Bir araştırmayı ve ona ait tüm vakaları, yanıtları ve referansları siler."""
+    research = db.session.get(Research, research_id)
+    if not research:
+        flash("Silinecek araştırma bulunamadı.", "danger")
+        return redirect(url_for('admin_dashboard'))
+
+    research_title = research.title
+    try:
+        # 1. Araştırmaya ait vakaları bul
+        cases = Case.query.filter_by(research_id=research.id).all()
+        if cases:
+            case_ids = [c.id for c in cases]
+
+            # 2. Vakalarla ilişkili UserResponse'ları sil (toplu silme)
+            UserResponse.query.filter(UserResponse.case_id.in_(case_ids)).delete(synchronize_session=False)
+
+            # 3. Vakalarla ilişkili ReferenceAnswer'ları sil (toplu silme)
+            ReferenceAnswer.query.filter(ReferenceAnswer.case_id.in_(case_ids)).delete(synchronize_session=False)
+
+            # 4. Vakaları sil
+            for case in cases:
+                db.session.delete(case)
+
+        # 5. Araştırmanın kendisini sil
+        db.session.delete(research)
+
+        # 6. Değişiklikleri kaydet
+        db.session.commit()
+        flash(f'"{research_title}" araştırması ve ilişkili tüm veriler başarıyla silindi.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Araştırma silinirken bir hata oluştu: {e}', 'danger')
+
+    return redirect(url_for('admin_dashboard'))
+
 @app.route('/test_modern')
 def modern_test_page():
     """Yeni layout ve Tailwind'in çalıştığını test eden sayfayı sunar."""
@@ -1138,8 +1226,56 @@ def scientific_analytics(research_id):
 # --- 13. KOMUT SATIRI VE ÇALIŞTIRMA ---
 import click
 from flask.cli import with_appcontext
-# Analiz fonksiyonlarını import ettiğimizden emin olalım (zaten yukarida olmalı)
-from analysis import get_research_responses_df, calculate_participant_stats, calculate_scientific_analytics
+# get_semantic_score fonksiyonunun bu komuttan önce tanımlandığından emin olun
+
+@app.cli.command('test-gemini')
+@with_appcontext
+def test_gemini_command():
+    """Gemini Hakem LLM fonksiyonunu (get_semantic_score) test eder."""
+    click.echo(click.style("Gemini Hakem LLM Test Ediliyor...", fg='yellow', bold=True))
+
+    # Modelin (API anahtarı kontrolü yapılandırmada yapılır) başlatılıp başlatılmadığını kontrol et
+    # app.py'nin başındaki 'model = None' ve try/except bloğunu kullanıyoruz
+    if not model:
+        click.echo(click.style("  ❌ HATA: Gemini modeli (model objesi) başlatılamamış.", fg='red'))
+        click.echo(click.style("     .env dosyasındaki GEMINI_API_KEY'in geçerli olduğundan", fg='red'))
+        click.echo(click.style("     ve app.py başlarken API yapılandırma hatası olmadığından emin olun.", fg='red'))
+        return
+    else:
+         click.echo(click.style(f"  ✅ Gemini modeli ('{getattr(model, 'model_name', 'unknown')}') yüklendi.", fg='green'))
+
+    # Örnek Girdiler
+    sample_user_answer = "Yüksek doz Amoksisilin 10 gün"
+    sample_gold_answer = "Yüksek doz Amoksisilin (80-90 mg/kg/gün, 2 dozda) 7-10 gün süreyle"
+    sample_category = "Tedavi Planı"
+
+    click.echo(f"  -> Test Girdileri:")
+    click.echo(f"     Kullanıcı Yanıtı: '{sample_user_answer}'")
+    click.echo(f"     Altın Standart: '{sample_gold_answer}'")
+    click.echo(f"     Kategori: '{sample_category}'")
+    click.echo("  -> Gemini API çağrılıyor (Bu işlem biraz sürebilir)...")
+
+    try:
+        # Fonksiyonu çağır
+        score, result_dict = get_semantic_score(sample_user_answer, sample_gold_answer, sample_category)
+        
+        # Sonuçları al
+        reasoning = result_dict.get('reason', 'Gerekçe alınamadı.')
+        # raw_response = result_dict.get('raw', 'Ham yanıt alınamadı.')
+
+        click.echo(click.style("  ✅ API Yanıtı Başarılı:", fg='green'))
+        click.echo(f"     Skor: {score}")
+        click.echo(f"     Gerekçe: {reasoning}")
+
+        # Skorun formatını basitçe kontrol et
+        if isinstance(score, int) and 0 <= score <= 100:
+             click.echo(click.style("  ✅ Skor formatı geçerli (0-100 arası tamsayı).", fg='green'))
+        else:
+             click.echo(click.style(f"  ⚠️ UYARI: Skor formatı beklenmedik: {score} (Tip: {type(score)})", fg='yellow'))
+             
+    except Exception as e:
+        click.echo(click.style(f"\n  💥 KRİTİK HATA: API çağrısı sırasında hata oluştu: {e}", fg='red', bold=True))
+        click.echo(click.style("     API Anahtarının geçerliliğini, .env dosyasını, internet bağlantısını ve Gemini API durumunu kontrol edin.", fg='yellow'))
 
 @app.cli.command('test-analysis')
 @click.option('--research-id', type=int, default=None, help='Test edilecek araştırma IDsi (varsayılan: tüm aktif araştırmalar)')

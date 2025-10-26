@@ -19,12 +19,14 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, Response, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_migrate import Migrate 
 
 from dotenv import load_dotenv
 import google.generativeai as genai
 from redis import Redis
 from rq import Queue
 from rq.job import Job
+from sqlalchemy.orm.attributes import flag_modified
 from werkzeug.security import generate_password_hash, check_password_hash
 import pandas as pd
 
@@ -58,6 +60,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # --- 3. EKLENTİLERİ BAŞLATMA (DB, LOGIN, REDIS) ---
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'giris'
@@ -349,10 +352,13 @@ def completion_page(research_id):
 
 @app.route('/giris', methods=['GET', 'POST'])
 def giris():
-    """Kullanıcı girişi ve kaydı (e-posta tabanlı)."""
     if current_user.is_authenticated:
         if current_user.is_admin:
             return redirect(url_for('admin_dashboard'))
+        if not current_user.has_consented:
+            return redirect(url_for('consent'))
+        if not current_user.profession or current_user.experience is None:
+            return redirect(url_for('demographics'))
         return redirect(url_for('select_research'))
 
     if request.method == 'POST':
@@ -373,7 +379,7 @@ def giris():
             return redirect(url_for('admin_dashboard'))
         if not user.has_consented:
             return redirect(url_for('consent'))
-        if not user.profession:
+        if not user.profession or user.experience is None:
             return redirect(url_for('demographics'))
 
         return redirect(url_for('select_research'))
@@ -802,8 +808,23 @@ def edit_case(case_id):
                     llm_responses[llm.name] = llm_response_val
             new_content['llm_responses'] = llm_responses
 
+            # Güncel form verilerine göre mevcut bölüm içeriklerini güncelle
+            existing_sections = new_content.get('sections', []) or []
+            updated_sections = []
+            for idx, section in enumerate(existing_sections):
+                section_content = request.form.get(f'section_{idx}')
+                if section_content is None:
+                    break
+                updated_sections.append({
+                    'title': section.get('title', f'Bölüm {idx + 1}'),
+                    'content': section_content
+                })
+            if updated_sections and len(updated_sections) == len(existing_sections):
+                new_content['sections'] = updated_sections
+
             # Değişiklikleri kaydet
             case.content = new_content
+            flag_modified(case, "content")
             db.session.commit()
             flash(f'"{new_content["title"]}" vakası başarıyla güncellendi.', 'success')
             return redirect(url_for('research_admin_dashboard', research_id=case.research_id))

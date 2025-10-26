@@ -162,10 +162,6 @@ def create_mcq_research_and_data():
 if __name__ == "__main__":
     research_id = None # ID'yi tutmak için değişken
     with app.app_context():
-        print("Veritabanı tabloları oluşturuluyor (varsa atlanacak)...")
-        db.create_all()
-        print("Tablolar oluşturuldu/kontrol edildi.")
-
         try: Faker
         except NameError:
             print("\nUYARI: 'Faker' kütüphanesi bulunamadı. Lütfen 'pip install Faker' komutuyla kurun.\n")

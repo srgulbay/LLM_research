@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bakım Modu - LLM Araştırma Platformu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        .animate-bounce-slow {
+            animation: bounce-slow 3s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.6); }
+        }
+        .pulse-glow {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-2xl w-full">
+        <!-- Animasyonlu İkon -->
+        <div class="flex justify-center mb-8 animate-bounce-slow">
+            <div class="relative">
+                <div class="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center pulse-glow">
+                    <svg class="w-20 h-20 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </div>
+                <!-- Dönüş Efekti -->
+                <div class="absolute inset-0 border-4 border-blue-400/30 rounded-full animate-spin" style="animation-duration: 8s;"></div>
+            </div>
+        </div>
+
+        <!-- İçerik Kartı -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 md:p-12 border border-white/20">
+            <div class="text-center space-y-6">
+                <!-- Başlık -->
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    🔧 Bakım Modu
+                </h1>
+                
+                <!-- Alt Başlık -->
+                <div class="inline-block bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-2 rounded-full">
+                    <p class="text-white font-semibold text-sm md:text-base">
+                        Sistem Geçici Olarak Devre Dışı
+                    </p>
+                </div>
+
+                <!-- Mesaj -->
+                <div class="mt-8 p-6 bg-white/5 rounded-2xl border border-white/10">
+                    <p class="text-lg md:text-xl text-slate-200 leading-relaxed">
+                        {{ message }}
+                    </p>
+                </div>
+
+                <!-- Bilgi Kartları -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                    <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div class="text-blue-400 mb-2">
+                            <svg class="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <p class="text-white font-semibold text-sm">Kısa Sürecek</p>
+                        <p class="text-slate-400 text-xs mt-1">En kısa sürede geri döneceğiz</p>
+                    </div>
+                    
+                    <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div class="text-purple-400 mb-2">
+                            <svg class="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            </svg>
+                        </div>
+                        <p class="text-white font-semibold text-sm">Güvenli</p>
+                        <p class="text-slate-400 text-xs mt-1">Verileriniz korunuyor</p>
+                    </div>
+                    
+                    <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div class="text-pink-400 mb-2">
+                            <svg class="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <p class="text-white font-semibold text-sm">Güncellemeler</p>
+                        <p class="text-slate-400 text-xs mt-1">Sistem iyileştirmeleri yapılıyor</p>
+                    </div>
+                </div>
+
+                <!-- Alt Bilgi -->
+                <div class="mt-8 pt-6 border-t border-white/10">
+                    <p class="text-slate-400 text-sm">
+                        Sorularınız için: 
+                        <a href="mailto:support@llm-research.com" class="text-blue-400 hover:text-blue-300 font-semibold">
+                            support@llm-research.com
+                        </a>
+                    </p>
+                </div>
+
+                <!-- Yönetici Girişi -->
+                <div class="mt-6">
+                    <a href="/admin/login" class="inline-flex items-center space-x-2 text-slate-400 hover:text-white transition-colors text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        <span>Yönetici Girişi</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alt Logo -->
+        <div class="text-center mt-8">
+            <p class="text-slate-500 text-sm font-medium">
+                LLM Araştırma Platformu
+            </p>
+        </div>
+    </div>
+</body>
+</html>

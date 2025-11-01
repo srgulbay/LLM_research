@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-LLM_Research - Bilimsel Veri Toplama Platformu (Sürüm 2.1)
+LLM_Research - Bilimsel Veri Toplama Platformu (Sürüm 3.0)
 Bu sürüm, asenkron puanlama için Redis/RQ kullanır,
-Railway (PostgreSQL) ile yerel (SQLite) geliştirmeyi destekler ve
-dinamik skor takibi özelliği içerir.
+Railway (PostgreSQL) ile yerel (SQLite) geliştirmeyi destekler,
+dinamik skor takibi, RESTful API, gelişmiş analitik özellikleri içerir.
 """
 
 # --- 1. GEREKLİ KÜTÜPHANELER ---
@@ -20,6 +20,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, Res
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_migrate import Migrate 
+from flask_cors import CORS
 
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -57,10 +58,19 @@ else:
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# --- 3. EKLENTİLERİ BAŞLATMA (DB, LOGIN, REDIS) ---
+# --- 3. EKLENTİLERİ BAŞLATMA (DB, LOGIN, REDIS, CORS) ---
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+# CORS yapılandırması - API endpoint'leri için
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["http://localhost:3000", "http://localhost:5000", "*"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'giris'
@@ -152,12 +162,26 @@ class LLM(db.Model):
     def __repr__(self):
         return f'<LLM {self.name}>'
 
+class SystemSettings(db.Model):
+    """Sistem ayarlarını saklayan tablo."""
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), unique=True, nullable=False)
+    value = db.Column(db.String(500), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+    
+    def __repr__(self):
+        return f'<SystemSettings {self.key}={self.value}>'
+
 class User(UserMixin, db.Model):
     """Kullanıcı bilgilerini (demografi dahil) saklayan tablo."""
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(150), unique=True, nullable=False)
+    username = db.Column(db.String(100), nullable=True)  # Opsiyonel kullanıcı adı
+    email = db.Column(db.String(150), unique=True, nullable=True)  # Artık opsiyonel
+    anonymous_id = db.Column(db.String(50), unique=True, nullable=True)  # Anonim kullanıcılar için
     password_hash = db.Column(db.String(256), nullable=True)  # Yönetici şifreleri için
     is_admin = db.Column(db.Boolean, default=False)
+    is_anonymous = db.Column(db.Boolean, default=False)  # Anonim kullanıcı kontrolü
     profession = db.Column(db.String(100))
     experience = db.Column(db.Integer)
     has_consented = db.Column(db.Boolean, default=False)
@@ -166,7 +190,15 @@ class User(UserMixin, db.Model):
     responses = db.relationship('UserResponse', back_populates='author', lazy=True)
 
     def __repr__(self):
-        return f'<User {self.email}>'
+        if self.is_anonymous:
+            return f'<User Anonymous:{self.anonymous_id}>'
+        return f'<User {self.email or self.username}>'
+    
+    def get_display_name(self):
+        """Kullanıcının görüntülenecek adını döndürür."""
+        if self.is_anonymous:
+            return f"Anonim Kullanıcı ({self.anonymous_id[:8]})"
+        return self.username or self.email or "Kullanıcı"
 
 class Research(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -213,6 +245,24 @@ class UserResponse(db.Model):
 
     def __repr__(self):
         return f'<UserResponse {self.id} - Case {self.case_id} - User {self.user_id}>'
+
+class ResearchFinding(db.Model):
+    """Araştırma bulgularını akademik format halinde saklar."""
+    id = db.Column(db.Integer, primary_key=True)
+    research_id = db.Column(db.Integer, db.ForeignKey('research.id'), nullable=False)
+    title = db.Column(db.String(500), nullable=False)
+    finding_type = db.Column(db.String(50), nullable=False)  # 'table', 'chart', 'text', 'statistical_test'
+    content = db.Column(db.JSON, nullable=False)  # Tablo verileri, grafik config, metin içeriği
+    order_index = db.Column(db.Integer, default=0)  # Sıralama için
+    is_published = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
+                          onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+    
+    research = db.relationship('Research', backref='findings', lazy=True)
+    
+    def __repr__(self):
+        return f'<ResearchFinding {self.id} - {self.title}>'
 
 # --- 6. YARDIMCI FONKSİYONLAR VE DECORATOR'LAR ---
 
@@ -298,7 +348,35 @@ def research_setup_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# --- 6. YARDIMCI FONKSİYONLAR ---
+
+def is_maintenance_mode():
+    """Bakım modunun açık olup olmadığını kontrol eder."""
+    setting = SystemSettings.query.filter_by(key='maintenance_mode').first()
+    return setting and setting.value == 'true'
+
+def get_maintenance_message():
+    """Bakım modu mesajını getirir."""
+    setting = SystemSettings.query.filter_by(key='maintenance_message').first()
+    return setting.value if setting else 'Sistem bakımda. Lütfen daha sonra tekrar deneyin.'
+
 # --- 7. ANA UYGULAMA ROUTE'LARI ---
+
+@app.before_request
+def check_maintenance_mode():
+    """Her istekten önce bakım modunu kontrol eder."""
+    # İzin verilen yollar (admin ve statik dosyalar)
+    allowed_paths = ['/admin/login', '/admin/maintenance', '/static/', '/admin/logout']
+    
+    # Eğer yol izin verilenlerden biri ise veya statik dosya ise atla
+    if any(request.path.startswith(path) for path in allowed_paths):
+        return None
+    
+    # Bakım modu aktifse ve kullanıcı admin değilse
+    if is_maintenance_mode():
+        if not current_user.is_authenticated or not current_user.is_admin:
+            return render_template('maintenance.html', 
+                                 message=get_maintenance_message()), 503
 
 @app.route('/')
 @login_required
@@ -362,16 +440,54 @@ def giris():
         return redirect(url_for('select_research'))
 
     if request.method == 'POST':
+        username = request.form.get('username', '').strip()
         email = request.form.get('email', '').lower().strip()
-        if not email:
-            flash('Lütfen bir e-posta adresi girin.', 'danger')
-            return redirect(url_for('giris'))
-
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            user = User(email=email)
+        is_anonymous = request.form.get('is_anonymous') == 'true'
+        
+        user = None
+        
+        # Anonim kullanıcı oluşturma
+        if is_anonymous:
+            import uuid
+            anonymous_id = str(uuid.uuid4())
+            user = User(
+                anonymous_id=anonymous_id,
+                is_anonymous=True
+            )
             db.session.add(user)
             db.session.commit()
+        
+        # Email ile giriş
+        elif email:
+            user = User.query.filter_by(email=email).first()
+            if not user:
+                user = User(
+                    email=email,
+                    username=username if username else None,
+                    is_anonymous=False
+                )
+                db.session.add(user)
+                db.session.commit()
+            elif username and not user.username:
+                # Var olan kullanıcıya username ekle
+                user.username = username
+                db.session.commit()
+        
+        # Kullanıcı adı ile giriş
+        elif username:
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                user = User(
+                    username=username,
+                    is_anonymous=False
+                )
+                db.session.add(user)
+                db.session.commit()
+        
+        # Hiçbir bilgi girilmemişse hata
+        else:
+            flash('Lütfen kullanıcı adı, e-posta girin veya anonim olarak devam edin.', 'danger')
+            return redirect(url_for('giris'))
 
         login_user(user, remember=True)
 
@@ -672,6 +788,48 @@ def export_research_csv(research_id):
 
 # --- 11. YÖNETİCİ API ROTALARI ---
 
+@app.route('/admin/maintenance', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_maintenance():
+    """Bakım modu yönetimi sayfası."""
+    if request.method == 'POST':
+        mode = request.form.get('maintenance_mode', 'false')
+        message = request.form.get('maintenance_message', 'Sistem bakımda. Lütfen daha sonra tekrar deneyin.')
+        
+        # Bakım modu ayarını güncelle veya oluştur
+        mode_setting = SystemSettings.query.filter_by(key='maintenance_mode').first()
+        if mode_setting:
+            mode_setting.value = mode
+            mode_setting.updated_at = datetime.datetime.now(datetime.timezone.utc)
+        else:
+            mode_setting = SystemSettings(key='maintenance_mode', value=mode, description='Bakım modu durumu')
+            db.session.add(mode_setting)
+        
+        # Bakım modu mesajını güncelle veya oluştur
+        message_setting = SystemSettings.query.filter_by(key='maintenance_message').first()
+        if message_setting:
+            message_setting.value = message
+            message_setting.updated_at = datetime.datetime.now(datetime.timezone.utc)
+        else:
+            message_setting = SystemSettings(key='maintenance_message', value=message, description='Bakım modu mesajı')
+            db.session.add(message_setting)
+        
+        db.session.commit()
+        flash(f'Bakım modu {"açıldı" if mode == "true" else "kapatıldı"}!', 'success')
+        return redirect(url_for('admin_maintenance'))
+    
+    # GET isteği
+    mode_setting = SystemSettings.query.filter_by(key='maintenance_mode').first()
+    message_setting = SystemSettings.query.filter_by(key='maintenance_message').first()
+    
+    maintenance_mode = mode_setting.value if mode_setting else 'false'
+    maintenance_message = message_setting.value if message_setting else 'Sistem bakımda. Lütfen daha sonra tekrar deneyin.'
+    
+    return render_template('admin/maintenance.html', 
+                         maintenance_mode=maintenance_mode,
+                         maintenance_message=maintenance_message)
+
 @app.route('/admin/llms')
 @login_required
 @admin_required
@@ -705,6 +863,164 @@ def add_llm():
 def manage_researches():
     """Artık /admin/dashboard tarafından kullanılıyor, bu yönlendirme olarak kalabilir."""
     return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/case-generator', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_case_generator():
+    """Research Case Generator - Admin Panel Entegrasyonu"""
+    
+    if request.method == 'POST':
+        try:
+            # Form verilerini al ve session'a kaydet
+            import uuid
+            task_id = str(uuid.uuid4())
+            
+            session[f'case_gen_params_{task_id}'] = {
+                'template_type': request.form.get('template_type'),
+                'research_title': request.form.get('research_title'),
+                'target_group': request.form.get('target_group'),
+                'specialty': request.form.get('specialty'),
+                'num_cases': int(request.form.get('num_cases', 5)),
+                'questions_per_case': int(request.form.get('questions_per_case', 5)),
+                'difficulty': request.form.get('difficulty', 'mixed'),
+                'gemini_model': request.form.get('gemini_model', 'gemini-pro-latest'),
+                'focus_areas': request.form.get('focus_areas', ''),
+                'additional_directives': request.form.get('additional_directives', ''),
+                'status': 'pending'
+            }
+            
+            # Progress sayfasına yönlendir
+            return redirect(url_for('case_generator_progress', task_id=task_id))
+                
+        except Exception as e:
+            flash(f'Hata: {str(e)}', 'danger')
+            return redirect(url_for('admin_case_generator'))
+    
+    # GET request - formu göster
+    return render_template('admin/case_generator.html')
+
+@app.route('/admin/case-generator/progress/<task_id>')
+@login_required
+@admin_required
+def case_generator_progress(task_id):
+    """Progress görüntüleme sayfası"""
+    params = session.get(f'case_gen_params_{task_id}')
+    if not params:
+        flash('Geçersiz task ID.', 'danger')
+        return redirect(url_for('admin_case_generator'))
+    
+    return render_template('admin/case_generator_progress.html', task_id=task_id, params=params)
+
+@app.route('/admin/case-generator/execute/<task_id>')
+@login_required
+@admin_required
+def case_generator_execute(task_id):
+    """SSE endpoint - Real-time log streaming"""
+    # Session'dan params'ı al (generator dışında)
+    params = session.get(f'case_gen_params_{task_id}')
+    if not params:
+        return "data: {\"type\": \"error\", \"message\": \"Task bulunamadı\"}\n\n", 404
+    
+    def generate_logs(params):
+        import time
+        import json
+        from datetime import datetime
+        
+        try:
+            # Log helper
+            def log(level, message, progress=None):
+                data = {
+                    'type': level,
+                    'message': message,
+                    'progress': progress,
+                    'timestamp': datetime.now().strftime('%H:%M:%S')
+                }
+                return f"data: {json.dumps(data)}\n\n"
+            
+            yield log('info', '🚀 Vaka oluşturma başlatılıyor...')
+            time.sleep(0.3)
+            
+            # ResearchCaseGenerator'ı import et
+            gemini_model = params.get('gemini_model', 'gemini-pro-latest')
+            yield log('info', f'🤖 Gemini AI bağlantısı kuruluyor ({gemini_model})...')
+            from research_case_generator import ResearchCaseGenerator
+            generator = ResearchCaseGenerator(model_name=gemini_model)
+            time.sleep(0.2)
+            yield log('success', f'✓ Gemini AI bağlantısı başarılı ({gemini_model})')
+            
+            # Direktifleri hazırla
+            template_type = params['template_type']
+            num_cases = params['num_cases']
+            questions_per_case = params['questions_per_case']
+            difficulty = params['difficulty']
+            
+            if template_type == 'custom':
+                yield log('info', '📝 Özel direktifler hazırlanıyor...')
+                directives = {
+                    'research_title': params['research_title'],
+                    'target_group': params['target_group'],
+                    'specialty': params['specialty'],
+                    'focus_areas': [area.strip() for area in params['focus_areas'].split('\n') if area.strip()],
+                    'additional_context': params['additional_directives']
+                }
+                time.sleep(0.2)
+                yield log('success', '✓ Özel direktifler hazırlandı')
+            else:
+                yield log('info', f'📋 Şablon yükleniyor: {template_type}')
+                template = generator.get_template_directives(template_type)
+                if template:
+                    directives = template
+                    if params['additional_directives']:
+                        directives['additional_context'] = params['additional_directives']
+                    time.sleep(0.2)
+                    yield log('success', '✓ Şablon başarıyla yüklendi')
+                else:
+                    yield log('error', '❌ Şablon yüklenemedi')
+                    return
+            
+            # Batch generation
+            yield log('info', f'🔬 {num_cases} vaka oluşturuluyor (bu birkaç dakika sürebilir)...')
+            time.sleep(0.5)
+            
+            cases_data = []
+            for i in range(num_cases):
+                progress = int((i / num_cases) * 100)
+                yield log('info', f'⏳ Vaka {i+1}/{num_cases} hazırlanıyor...', progress)
+                
+                # Gerçek vaka oluşturma (bu kısım yavaş)
+                case = generator.generate_research_case(directives, questions_per_case, difficulty)
+                if case:
+                    cases_data.append(case)
+                    progress = int(((i+1) / num_cases) * 100)
+                    yield log('success', f'✓ Vaka {i+1}/{num_cases} tamamlandı', progress)
+                else:
+                    yield log('warning', f'⚠ Vaka {i+1} oluşturulamadı, devam ediliyor...')
+            
+            if not cases_data:
+                yield log('error', '❌ Hiçbir vaka oluşturulamadı')
+                return
+            
+            yield log('success', f'✅ Tüm vakalar oluşturuldu ({len(cases_data)} adet)')
+            time.sleep(0.3)
+            
+            # Veritabanına kaydet
+            yield log('info', '💾 Veritabanına kaydediliyor...')
+            time.sleep(0.5)
+            
+            research_id = generator.load_to_database(cases_data)
+            
+            if research_id:
+                yield log('success', f'✅ Veritabanına kaydedildi (Research ID: {research_id})', 100)
+                time.sleep(0.5)
+                yield f"data: {json.dumps({'type': 'complete', 'research_id': research_id})}\n\n"
+            else:
+                yield log('error', '❌ Veritabanına kaydetme başarısız')
+                
+        except Exception as e:
+            yield log('error', f'❌ Hata: {str(e)}')
+    
+    return Response(generate_logs(params), mimetype='text/event-stream')
 
 @app.route('/admin/arastirma/ekle', methods=['GET', 'POST'])
 @login_required
@@ -978,6 +1294,139 @@ def research_admin_dashboard(research_id):
     cases = Case.query.filter_by(research_id=research.id).order_by(Case.id).all()
     return render_template('admin/research_admin_dashboard.html', research=research, cases=cases)
 
+# --- 9. VERİ EXPORT SİSTEMİ ---
+
+@app.route('/admin/research/<int:research_id>/export/<format>')
+@login_required
+@admin_required
+def export_research_data(research_id, format):
+    """Araştırma verilerini CSV, JSON veya Excel formatında indirir."""
+    research = db.session.get(Research, research_id)
+    if not research:
+        flash('Araştırma bulunamadı.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    # Filtreleme parametreleri
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    profession = request.args.get('profession')
+    
+    # Temel query
+    query = UserResponse.query.join(Case).filter(Case.research_id == research_id)
+    
+    # Filtreleri uygula
+    if start_date:
+        try:
+            start_dt = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(UserResponse.created_at >= start_dt)
+        except ValueError:
+            pass
+    
+    if end_date:
+        try:
+            end_dt = datetime.datetime.strptime(end_date, '%Y-%m-%d') + datetime.timedelta(days=1)
+            query = query.filter(UserResponse.created_at < end_dt)
+        except ValueError:
+            pass
+    
+    if profession:
+        query = query.join(User).filter(User.profession == profession)
+    
+    responses = query.all()
+    
+    # Veri hazırlama
+    data = []
+    for resp in responses:
+        user = resp.author
+        case = resp.case
+        case_content = case.content or {}
+        
+        row = {
+            'response_id': resp.id,
+            'user_id': user.id,
+            'user_display_name': user.get_display_name(),
+            'user_email': user.email or 'N/A',
+            'user_username': user.username or 'N/A',
+            'is_anonymous': user.is_anonymous,
+            'profession': user.profession or 'Bilinmiyor',
+            'experience_years': user.experience or 0,
+            'case_id': case.id,
+            'case_title': case_content.get('title', 'Başlıksız'),
+            'confidence_score': resp.confidence_score or 0,
+            'clinical_rationale': resp.clinical_rationale or '',
+            'duration_seconds': resp.duration_seconds or 0,
+            'created_at': resp.created_at.strftime('%Y-%m-%d %H:%M:%S') if resp.created_at else '',
+        }
+        
+        # Cevapları ekle
+        if isinstance(resp.answers, dict):
+            for key, value in resp.answers.items():
+                row[f'answer_{key}'] = value
+        
+        # Skorları ekle
+        if isinstance(resp.scores, dict):
+            for key, value in resp.scores.items():
+                row[f'score_{key}'] = value
+        
+        data.append(row)
+    
+    if not data:
+        flash('Belirtilen kriterlere uygun veri bulunamadı.', 'warning')
+        return redirect(url_for('research_admin_dashboard', research_id=research_id))
+    
+    df = pd.DataFrame(data)
+    filename = f"{research.title.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    # Format'a göre export
+    if format == 'csv':
+        output = io.StringIO()
+        df.to_csv(output, index=False, encoding='utf-8-sig')
+        output.seek(0)
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename={filename}.csv'}
+        )
+    
+    elif format == 'json':
+        json_data = df.to_json(orient='records', force_ascii=False, indent=2)
+        return Response(
+            json_data,
+            mimetype='application/json',
+            headers={'Content-Disposition': f'attachment; filename={filename}.json'}
+        )
+    
+    elif format == 'excel':
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Responses', index=False)
+            
+            # Özet istatistikler sayfası
+            summary_data = {
+                'Metrik': ['Toplam Yanıt', 'Benzersiz Kullanıcı', 'Ortalama Deneyim (Yıl)', 
+                          'Ortalama Güven Skoru', 'Ortalama Süre (Saniye)'],
+                'Değer': [
+                    len(df),
+                    df['user_id'].nunique(),
+                    df['experience_years'].mean(),
+                    df['confidence_score'].mean(),
+                    df['duration_seconds'].mean()
+                ]
+            }
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name='Özet', index=False)
+        
+        output.seek(0)
+        return Response(
+            output.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={'Content-Disposition': f'attachment; filename={filename}.xlsx'}
+        )
+    
+    else:
+        flash('Geçersiz format.', 'danger')
+        return redirect(url_for('research_admin_dashboard', research_id=research_id))
+
 @app.route('/admin/case/delete/<int:case_id>', methods=['POST'])
 @login_required
 @admin_required
@@ -1041,6 +1490,212 @@ def delete_research(research_id):
         flash(f'Araştırma silinirken bir hata oluştu: {e}', 'danger')
 
     return redirect(url_for('admin_dashboard'))
+
+# --- 10. ARAŞTIRMA BULGULARI MODÜLÜ ---
+
+@app.route('/admin/research/<int:research_id>/findings')
+@login_required
+@admin_required
+def research_findings(research_id):
+    """Araştırma bulgularını akademik formatta gösterir."""
+    research = db.session.get(Research, research_id)
+    if not research:
+        flash('Araştırma bulunamadı.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    findings = ResearchFinding.query.filter_by(research_id=research_id).order_by(ResearchFinding.order_index).all()
+    
+    # Verileri analiz et
+    from analysis import get_research_responses_df
+    from advanced_analytics import create_interactive_dashboard_data
+    
+    df = get_research_responses_df(research_id)
+    analytics_data = None
+    
+    if not df.empty:
+        try:
+            analytics_data = create_interactive_dashboard_data(df, research_id)
+        except Exception as e:
+            app.logger.error(f"Analytics oluşturulurken hata: {e}")
+    
+    return render_template('admin/research_findings.html', 
+                          research=research, 
+                          findings=findings,
+                          analytics_data=analytics_data)
+
+@app.route('/admin/research/<int:research_id>/findings/generate', methods=['POST'])
+@login_required
+@admin_required
+def generate_findings(research_id):
+    """Gemini API kullanarak otomatik bulgular oluşturur."""
+    research = db.session.get(Research, research_id)
+    if not research:
+        flash('Araştırma bulunamadı.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    from analysis import get_research_responses_df
+    df = get_research_responses_df(research_id)
+    
+    if df.empty:
+        flash('Bulgu oluşturmak için yeterli veri yok.', 'warning')
+        return redirect(url_for('research_findings', research_id=research_id))
+    
+    # Gemini ile bulgu metni oluştur
+    if not model:
+        flash('Gemini API kullanılamıyor. Lütfen yapılandırmayı kontrol edin.', 'danger')
+        return redirect(url_for('research_findings', research_id=research_id))
+    
+    summary_stats = {
+        'total_responses': len(df),
+        'unique_users': df['user_id'].nunique() if 'user_id' in df.columns else 0,
+        'avg_confidence': df['confidence_score'].mean() if 'confidence_score' in df.columns else 0,
+        'avg_score': df['user_final_score'].mean() if 'user_final_score' in df.columns else 0,
+    }
+    
+    prompt = f"""
+    Sen deneyimli bir tıbbi araştırmacısın. Aşağıdaki araştırma verilerine dayalı olarak akademik bir "Bulgular" bölümü yaz.
+    
+    Araştırma: {research.title}
+    Açıklama: {research.description or 'Belirtilmemiş'}
+    
+    Veri Özeti:
+    - Toplam Yanıt: {summary_stats['total_responses']}
+    - Benzersiz Katılımcı: {summary_stats['unique_users']}
+    - Ortalama Güven Skoru: {summary_stats['avg_confidence']:.2f}
+    - Ortalama Performans Skoru: {summary_stats['avg_score']:.2f}
+    
+    Lütfen profesyonel, bilimsel bir dille bulgular bölümü oluştur. Tablolar ve grafiklerle desteklenecek şekilde metinler yaz.
+    """
+    
+    try:
+        response = model.generate_content(prompt)
+        finding_text = response.text
+        
+        # Yeni bulgu kaydet
+        new_finding = ResearchFinding(
+            research_id=research_id,
+            title="Otomatik Oluşturulan Bulgular Metni",
+            finding_type='text',
+            content={'text': finding_text},
+            order_index=ResearchFinding.query.filter_by(research_id=research_id).count(),
+            is_published=False
+        )
+        db.session.add(new_finding)
+        db.session.commit()
+        
+        flash('Bulgular başarıyla oluşturuldu!', 'success')
+    except Exception as e:
+        flash(f'Bulgular oluşturulurken hata: {e}', 'danger')
+    
+    return redirect(url_for('research_findings', research_id=research_id))
+
+@app.route('/admin/research/<int:research_id>/findings/add', methods=['POST'])
+@login_required
+@admin_required
+def add_finding(research_id):
+    """Manuel olarak bulgu ekler."""
+    research = db.session.get(Research, research_id)
+    if not research:
+        flash('Araştırma bulunamadı.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    title = request.form.get('title')
+    finding_type = request.form.get('finding_type')
+    content_text = request.form.get('content_text')
+    
+    if not title or not finding_type:
+        flash('Başlık ve tip zorunludur.', 'danger')
+        return redirect(url_for('research_findings', research_id=research_id))
+    
+    content = {'text': content_text} if content_text else {}
+    
+    new_finding = ResearchFinding(
+        research_id=research_id,
+        title=title,
+        finding_type=finding_type,
+        content=content,
+        order_index=ResearchFinding.query.filter_by(research_id=research_id).count()
+    )
+    
+    db.session.add(new_finding)
+    db.session.commit()
+    
+    flash('Bulgu eklendi!', 'success')
+    return redirect(url_for('research_findings', research_id=research_id))
+
+@app.route('/admin/research/finding/<int:finding_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_finding(finding_id):
+    """Bulguyu siler."""
+    finding = db.session.get(ResearchFinding, finding_id)
+    if not finding:
+        flash('Bulgu bulunamadı.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    research_id = finding.research_id
+    db.session.delete(finding)
+    db.session.commit()
+    
+    flash('Bulgu silindi.', 'success')
+    return redirect(url_for('research_findings', research_id=research_id))
+
+@app.route('/admin/research/<int:research_id>/findings/export-pdf')
+@login_required
+@admin_required
+def export_findings_pdf(research_id):
+    """Bulguları PDF olarak export eder."""
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from reportlab.lib import colors
+    
+    research = db.session.get(Research, research_id)
+    if not research:
+        flash('Araştırma bulunamadı.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    findings = ResearchFinding.query.filter_by(research_id=research_id, is_published=True).order_by(ResearchFinding.order_index).all()
+    
+    # PDF oluştur
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Başlık
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#1a1a1a'),
+        spaceAfter=30,
+    )
+    story.append(Paragraph(research.title, title_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Bulgular Başlığı
+    story.append(Paragraph("BULGULAR", styles['Heading1']))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Her bulguyu ekle
+    for finding in findings:
+        story.append(Paragraph(finding.title, styles['Heading2']))
+        
+        if finding.finding_type == 'text' and 'text' in finding.content:
+            story.append(Paragraph(finding.content['text'], styles['Normal']))
+        
+        story.append(Spacer(1, 0.2*inch))
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    return Response(
+        buffer.getvalue(),
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename={research.title}_bulgular.pdf'}
+    )
 
 @app.route('/test_modern')
 def modern_test_page():
@@ -1123,7 +1778,7 @@ def case_detail(case_id):
         current_case_index = len(completed_case_ids) + 1
         total_cases = len(all_case_ids)
 
-    return render_template('case.html', 
+    return render_template('case_chat.html', 
                            case=case, 
                            current_case_index=current_case_index, 
                            total_cases=total_cases)
@@ -1420,7 +2075,16 @@ def enqueue_scoring_command(research_id):
          click.echo(click.style(f"Kuyruğa eklenemeyen görev sayısı: {error_count}", fg='yellow'))
     click.echo("RQ worker'ın görevleri işlemesini bekleyin.")
 
+# --- API BLUEPRINT KAYDI ---
+try:
+    from api_routes import api_bp
+    app.register_blueprint(api_bp)
+    print("✓ API Blueprint başarıyla kaydedildi: /api/v1")
+except ImportError as e:
+    print(f"UYARI: API Blueprint yüklenemedi: {e}")
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)), debug=True)
+

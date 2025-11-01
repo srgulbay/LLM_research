@@ -1,0 +1,309 @@
+{% extends "admin/admin_layout.html" %}
+
+{% block title %}Vaka Oluşturuluyor{% endblock %}
+
+{% block admin_content %}
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 py-8">
+    <div class="container mx-auto px-4 max-w-5xl">
+        
+        <!-- Header -->
+        <div class="text-center mb-8 animate-fade-in">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-4 shadow-2xl animate-pulse-slow">
+                <svg class="w-10 h-10 text-white animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                Vaka Oluşturuluyor
+            </h1>
+            <p class="text-slate-600 dark:text-slate-400 text-lg">Gemini AI ile {{params.num_cases}} vaka hazırlanıyor...</p>
+        </div>
+
+        <!-- Main Progress Card -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
+            
+            <!-- Progress Bar -->
+            <div class="bg-slate-200 dark:bg-slate-700 h-3">
+                <div id="progress-bar" 
+                     class="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out shadow-lg" 
+                     style="width: 0%">
+                    <div class="h-full w-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <!-- Stats Row -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                        <div class="flex items-center space-x-3">
+                            <div class="bg-blue-500 rounded-lg p-2">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600 dark:text-slate-400">Toplam Vaka</p>
+                                <p class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="total-cases">{{params.num_cases}}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                        <div class="flex items-center space-x-3">
+                            <div class="bg-purple-500 rounded-lg p-2">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600 dark:text-slate-400">Tamamlanan</p>
+                                <p class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="completed-cases">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                        <div class="flex items-center space-x-3">
+                            <div class="bg-green-500 rounded-lg p-2">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600 dark:text-slate-400">İlerleme</p>
+                                <p class="text-2xl font-bold text-green-600 dark:text-green-400" id="progress-percent">0%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terminal Log Container -->
+                <div class="bg-slate-900 rounded-xl p-4 font-mono text-sm overflow-hidden shadow-inner border-2 border-slate-700">
+                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span class="ml-4 text-slate-400 text-xs">gemini-case-generator.log</span>
+                        </div>
+                        <span class="text-slate-500 text-xs" id="current-time">--:--:--</span>
+                    </div>
+                    
+                    <div id="log-container" class="h-64 overflow-y-auto space-y-1 scroll-smooth">
+                        <!-- Logs will be appended here -->
+                        <div class="flex items-center text-slate-500 animate-pulse">
+                            <svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            <span>Başlatılıyor...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons (hidden initially) -->
+                <div id="action-buttons" class="hidden mt-6 flex justify-center space-x-4">
+                    <a href="#" id="view-research-btn" 
+                       class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        <span>Araştırmayı Görüntüle</span>
+                    </a>
+                    <a href="{{ url_for('admin_case_generator') }}" 
+                       class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        <span>Yeni Vaka Seti</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const logContainer = document.getElementById('log-container');
+    const progressBar = document.getElementById('progress-bar');
+    const progressPercent = document.getElementById('progress-percent');
+    const completedCases = document.getElementById('completed-cases');
+    const currentTime = document.getElementById('current-time');
+    const actionButtons = document.getElementById('action-buttons');
+    const viewResearchBtn = document.getElementById('view-research-btn');
+    
+    let completedCount = 0;
+    const totalCases = {{ params.num_cases }};
+
+    // Update time
+    function updateTime() {
+        const now = new Date();
+        currentTime.textContent = now.toLocaleTimeString('tr-TR');
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+
+    // Auto-scroll log container
+    function scrollToBottom() {
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    // Add log message
+    function addLog(type, message, timestamp) {
+        const logEntry = document.createElement('div');
+        logEntry.className = 'flex items-start space-x-2 opacity-0 animate-fade-in-up';
+        
+        let icon = '';
+        let colorClass = '';
+        
+        switch(type) {
+            case 'info':
+                colorClass = 'text-blue-400';
+                icon = '<svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>';
+                break;
+            case 'success':
+                colorClass = 'text-green-400';
+                icon = '<svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+                break;
+            case 'warning':
+                colorClass = 'text-yellow-400';
+                icon = '<svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
+                break;
+            case 'error':
+                colorClass = 'text-red-400';
+                icon = '<svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>';
+                break;
+        }
+        
+        logEntry.innerHTML = `
+            <span class="${colorClass}">${icon}</span>
+            <span class="text-slate-400 text-xs flex-shrink-0">[${timestamp}]</span>
+            <span class="${colorClass} flex-1">${message}</span>
+        `;
+        
+        logContainer.appendChild(logEntry);
+        setTimeout(() => {
+            logEntry.classList.remove('opacity-0');
+        }, 10);
+        scrollToBottom();
+    }
+
+    // Update progress
+    function updateProgress(progress) {
+        if (progress !== null && progress !== undefined) {
+            progressBar.style.width = progress + '%';
+            progressPercent.textContent = Math.round(progress) + '%';
+            
+            // Update completed count based on progress
+            completedCount = Math.floor((progress / 100) * totalCases);
+            completedCases.textContent = completedCount;
+        }
+    }
+
+    // Connect to SSE
+    const eventSource = new EventSource('{{ url_for("case_generator_execute", task_id=task_id) }}');
+    
+    eventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'complete') {
+            addLog('success', '🎉 İşlem başarıyla tamamlandı!', data.timestamp);
+            updateProgress(100);
+            completedCases.textContent = totalCases;
+            
+            // Show action buttons
+            actionButtons.classList.remove('hidden');
+            viewResearchBtn.href = '/admin/research/' + data.research_id + '/dashboard';
+            
+            eventSource.close();
+        } else if (data.type === 'error') {
+            addLog('error', data.message, data.timestamp);
+            eventSource.close();
+        } else {
+            addLog(data.type, data.message, data.timestamp);
+            if (data.progress !== null && data.progress !== undefined) {
+                updateProgress(data.progress);
+            }
+        }
+    };
+    
+    eventSource.onerror = function() {
+        addLog('error', '❌ Bağlantı hatası', new Date().toLocaleTimeString('tr-TR'));
+        eventSource.close();
+    };
+});
+</script>
+
+<style>
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bounce-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-slow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.5s ease-out;
+}
+
+.animate-fade-in-up {
+    animation: fade-in-up 0.3s ease-out forwards;
+}
+
+.animate-bounce-slow {
+    animation: bounce-slow 2s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+    animation: pulse-slow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+    animation: shimmer 2s infinite;
+}
+
+/* Custom scrollbar for log container */
+#log-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+#log-container::-webkit-scrollbar-track {
+    background: #1e293b;
+    border-radius: 3px;
+}
+
+#log-container::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 3px;
+}
+
+#log-container::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+</style>
+{% endblock %}

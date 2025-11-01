@@ -1,6 +1,8 @@
 # Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # Environment variables
 .env
@@ -9,6 +11,36 @@ __pycache__/
 # SQLite database
 database.db
 *.db
+!database.db  # Keep main database
+database_backup_*.db  # Ignore backups
 
 # Virtual environment
 venv/
+env/
+
+# Logs
+*.log
+app.log
+
+# Temporary files
+*.tmp
+*.temp
+cookie.txt
+
+# Backups
+.backup_*/
+*.bak
+
+# Temporary reports
+*_REPORT.md
+!REORGANIZATION_REPORT.md  # Keep this one
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,285 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ case.content.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto h-screen flex flex-col pb-20">
+    <!-- İlerleme Çubuğu -->
+    {% if current_case_index and total_cases %}
+    <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-lg mb-4 flex-shrink-0">
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">
+                📊 Araştırma İlerlemesi
+            </h3>
+            <p class="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                Vaka {{ current_case_index }} / {{ total_cases }}
+            </p>
+        </div>
+        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+            <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-500" 
+                 style="width: {{ (current_case_index / total_cases) * 100 }}%"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Chat Container -->
+    <div class="flex-1 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+        
+        <!-- Chat Başlık -->
+        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4 flex items-center space-x-3 flex-shrink-0">
+            <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h2 class="text-white font-bold text-lg">Klinik Vaka Değerlendirmesi</h2>
+                <p class="text-white/80 text-xs">AI Destekli Tıbbi Karar Destek Sistemi</p>
+            </div>
+            <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+        </div>
+
+        <!-- Chat Mesajları -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth">
+            <!-- Mesajlar buraya JavaScript ile eklenecek -->
+        </div>
+
+        <!-- Yanıt Seçenekleri Alanı -->
+        <div id="answer-options" class="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
+            <!-- Seçenekler buraya JavaScript ile eklenecek -->
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Form -->
+<form method="POST" id="case-form" class="hidden">
+    <input type="hidden" name="start_time" id="start_time" value="">
+    <input type="hidden" name="confidence_score" id="confidence_score" value="75">
+    <input type="hidden" name="clinical_rationale" id="clinical_rationale" value="">
+    {% for q in case.content.questions %}
+    <input type="hidden" name="{{ q.id }}" id="hidden_{{ q.id }}" value="">
+    {% endfor %}
+</form>
+
+<script>
+// Vaka Verileri
+const caseData = {
+    title: {{ case.content.title | tojson }},
+    sections: {{ case.content.sections | tojson }},
+    questions: {{ case.content.questions | tojson }}
+};
+
+let currentQuestionIndex = 0;
+let answers = {};
+let startTime = Date.now();
+
+document.getElementById('start_time').value = new Date().toISOString();
+
+// Chat mesajı ekleme fonksiyonu
+function addMessage(text, isBot = true, isHtml = false) {
+    const messagesContainer = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `flex ${isBot ? 'justify-start' : 'justify-end'} animate-fade-in`;
+    
+    const bubbleClass = isBot 
+        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white' 
+        : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white';
+    
+    const icon = isBot ? `
+        <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0 mr-2">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+            </svg>
+        </div>
+    ` : '';
+    
+    messageDiv.innerHTML = `
+        <div class="flex max-w-[80%] ${isBot ? 'flex-row' : 'flex-row-reverse'}">
+            ${icon}
+            <div class="${bubbleClass} rounded-2xl px-4 py-3 shadow-lg">
+                ${isHtml ? text : `<p class="text-sm leading-relaxed">${text}</p>`}
+            </div>
+        </div>
+    `;
+    
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Typing indicator
+function showTyping() {
+    const messagesContainer = document.getElementById('chat-messages');
+    const typingDiv = document.createElement('div');
+    typingDiv.id = 'typing-indicator';
+    typingDiv.className = 'flex justify-start animate-fade-in';
+    typingDiv.innerHTML = `
+        <div class="flex max-w-[80%]">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0 mr-2">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+            </div>
+            <div class="bg-white dark:bg-slate-700 rounded-2xl px-4 py-3 shadow-lg">
+                <div class="flex space-x-2">
+                    <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                    <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                    <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    messagesContainer.appendChild(typingDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function hideTyping() {
+    const typing = document.getElementById('typing-indicator');
+    if (typing) typing.remove();
+}
+
+// Seçenekleri göster
+function showOptions(options, questionId) {
+    const optionsContainer = document.getElementById('answer-options');
+    optionsContainer.innerHTML = '<div class="grid grid-cols-1 gap-2">';
+    
+    options.forEach((option, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'group bg-white dark:bg-slate-700 hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600 text-slate-900 dark:text-white hover:text-white border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 text-left transition-all duration-200 shadow-sm hover:shadow-lg transform hover:scale-[1.02]';
+        button.innerHTML = `
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-600 group-hover:bg-white/20 flex items-center justify-center font-bold text-sm">
+                    ${String.fromCharCode(65 + index)}
+                </div>
+                <span class="flex-1 text-sm font-medium">${option}</span>
+                <svg class="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </div>
+        `;
+        button.onclick = () => selectAnswer(questionId, option);
+        optionsContainer.querySelector('div').appendChild(button);
+    });
+}
+
+// Yanıt seçimi
+function selectAnswer(questionId, answer) {
+    answers[questionId] = answer;
+    document.getElementById('hidden_' + questionId).value = answer;
+    
+    // Kullanıcı yanıtını göster
+    addMessage(answer, false);
+    
+    // Seçenekleri gizle
+    document.getElementById('answer-options').innerHTML = '';
+    
+    // Sonraki soruya geç
+    setTimeout(() => {
+        currentQuestionIndex++;
+        askNextQuestion();
+    }, 800);
+}
+
+// Sonraki soruyu sor
+function askNextQuestion() {
+    if (currentQuestionIndex < caseData.questions.length) {
+        showTyping();
+        
+        setTimeout(() => {
+            hideTyping();
+            const question = caseData.questions[currentQuestionIndex];
+            addMessage(question.label);
+            
+            setTimeout(() => {
+                showOptions(question.options, question.id);
+            }, 500);
+        }, 1000);
+    } else {
+        // Tüm sorular tamamlandı
+        showTyping();
+        setTimeout(() => {
+            hideTyping();
+            addMessage('✅ Teşekkürler! Tüm sorular tamamlandı. Yanıtlarınız kaydediliyor...');
+            
+            // Klinik mantık oluştur
+            let rationale = `Vaka değerlendirmesi tamamlandı. Süre: ${Math.round((Date.now() - startTime) / 1000)} saniye.`;
+            document.getElementById('clinical_rationale').value = rationale;
+            
+            // Formu gönder
+            setTimeout(() => {
+                document.getElementById('case-form').submit();
+            }, 1500);
+        }, 1000);
+    }
+}
+
+// Vaka bilgilerini göster ve başlat
+function initializeChat() {
+    addMessage(`👋 Merhaba! Ben sizin klinik karar destek asistanınızım.`);
+    
+    setTimeout(() => {
+        addMessage(`📋 Size <strong>${caseData.title}</strong> hakkında sorular soracağım.`);
+    }, 1000);
+    
+    setTimeout(() => {
+        showTyping();
+    }, 2000);
+    
+    setTimeout(() => {
+        hideTyping();
+        
+        // Vaka bölümlerini göster
+        let caseHtml = '<div class="space-y-3">';
+        caseData.sections.forEach(section => {
+            caseHtml += `
+                <div class="border-l-4 border-blue-500 pl-3">
+                    <p class="font-semibold text-xs text-blue-600 dark:text-blue-400 mb-1">${section.title}</p>
+                    <p class="text-sm">${section.content}</p>
+                </div>
+            `;
+        });
+        caseHtml += '</div>';
+        
+        addMessage(caseHtml, true, true);
+    }, 3000);
+    
+    setTimeout(() => {
+        addMessage('🎯 Hazırsanız sorulara başlayalım!');
+    }, 4000);
+    
+    setTimeout(() => {
+        askNextQuestion();
+    }, 5000);
+}
+
+// Sayfa yüklendiğinde başlat
+window.addEventListener('load', initializeChat);
+
+// CSS animasyonları
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fade-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+        animation: fade-in 0.3s ease-out;
+    }
+    #chat-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+    #chat-messages::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    #chat-messages::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+    #chat-messages::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+`;
+document.head.appendChild(style);
+</script>
+
+{% endblock %}

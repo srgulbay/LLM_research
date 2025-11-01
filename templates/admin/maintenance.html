@@ -1,0 +1,177 @@
+{% extends "admin/admin_layout.html" %}
+
+{% block title %}Bakım Modu Yönetimi{% endblock %}
+
+{% block admin_content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Başlık -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900 dark:text-white flex items-center space-x-3">
+                    <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span>Bakım Modu Yönetimi</span>
+                </h1>
+                <p class="mt-2 text-slate-600 dark:text-slate-400">
+                    Sistem bakım modunu buradan kontrol edebilirsiniz
+                </p>
+            </div>
+            <!-- Durum Göstergesi -->
+            <div class="text-right">
+                {% if maintenance_mode == 'true' %}
+                <div class="inline-flex items-center space-x-2 bg-red-100 dark:bg-red-900/30 px-4 py-2 rounded-full border border-red-200 dark:border-red-800">
+                    <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    <span class="text-red-800 dark:text-red-300 font-semibold text-sm">Bakım Modu AÇIK</span>
+                </div>
+                {% else %}
+                <div class="inline-flex items-center space-x-2 bg-green-100 dark:bg-green-900/30 px-4 py-2 rounded-full border border-green-200 dark:border-green-800">
+                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span class="text-green-800 dark:text-green-300 font-semibold text-sm">Sistem Normal</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Bilgilendirme Kartı -->
+    <div class="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+        <div class="flex items-start space-x-3">
+            <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="flex-1">
+                <h3 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1">Bakım Modu Hakkında</h3>
+                <ul class="text-sm text-blue-800 dark:text-blue-400 space-y-1">
+                    <li>• Bakım modu açıldığında sadece yöneticiler sisteme erişebilir</li>
+                    <li>• Normal kullanıcılar bakım modu mesajını görür</li>
+                    <li>• Sistem güncellemeleri ve bakım işlemleri için kullanılır</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bakım Modu Formu -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700">
+        <form method="POST" class="p-8 space-y-6">
+            
+            <!-- Bakım Modu Switch -->
+            <div class="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div class="flex-1">
+                    <label class="text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                        <span>Bakım Modunu Etkinleştir</span>
+                    </label>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                        Sistemi bakım moduna alır ve normal kullanıcıların erişimini engeller
+                    </p>
+                </div>
+                
+                <!-- Toggle Switch -->
+                <div class="ml-6">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="maintenance_mode" value="true" class="sr-only peer" 
+                               {% if maintenance_mode == 'true' %}checked{% endif %}
+                               onchange="document.getElementById('mode-status').textContent = this.checked ? 'AÇIK' : 'KAPALI'; document.getElementById('mode-status').className = this.checked ? 'text-red-600 dark:text-red-400 font-bold' : 'text-green-600 dark:text-green-400 font-bold';">
+                        <div class="w-14 h-7 bg-slate-300 dark:bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-red-500 peer-checked:to-red-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Durum Göstergesi -->
+            <div class="text-center py-2">
+                <span class="text-sm text-slate-600 dark:text-slate-400">Durum: </span>
+                <span id="mode-status" class="{% if maintenance_mode == 'true' %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %} font-bold">
+                    {% if maintenance_mode == 'true' %}AÇIK{% else %}KAPALI{% endif %}
+                </span>
+            </div>
+
+            <!-- Mesaj Alanı -->
+            <div>
+                <label class="block text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+                    </svg>
+                    <span>Bakım Modu Mesajı</span>
+                </label>
+                <textarea 
+                    name="maintenance_message" 
+                    rows="4" 
+                    class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white resize-none"
+                    placeholder="Kullanıcılara gösterilecek mesajı girin..."
+                >{{ maintenance_message }}</textarea>
+                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    Bu mesaj, bakım modu etkinken kullanıcılara gösterilecektir.
+                </p>
+            </div>
+
+            <!-- Hazır Mesaj Şablonları -->
+            <div>
+                <label class="block text-sm font-semibold text-slate-900 dark:text-white mb-3">
+                    💡 Hazır Mesaj Şablonları
+                </label>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <button type="button" onclick="setMessage('Sistem bakımda. Lütfen daha sonra tekrar deneyin.')" 
+                            class="text-left p-3 bg-slate-50 dark:bg-slate-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors text-sm">
+                        <span class="text-slate-700 dark:text-slate-300">🔧 Sistem bakımda. Lütfen daha sonra tekrar deneyin.</span>
+                    </button>
+                    <button type="button" onclick="setMessage('Planlı bakım yapılıyor. Yakında tekrar açılacak.')" 
+                            class="text-left p-3 bg-slate-50 dark:bg-slate-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors text-sm">
+                        <span class="text-slate-700 dark:text-slate-300">⏰ Planlı bakım yapılıyor. Yakında tekrar açılacak.</span>
+                    </button>
+                    <button type="button" onclick="setMessage('Sistem güncellemesi yapılıyor. 1-2 saat içinde hizmet verilecektir.')" 
+                            class="text-left p-3 bg-slate-50 dark:bg-slate-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors text-sm">
+                        <span class="text-slate-700 dark:text-slate-300">🔄 Sistem güncellemesi yapılıyor...</span>
+                    </button>
+                    <button type="button" onclick="setMessage('Acil bakım çalışması devam ediyor. En kısa sürede geri döneceğiz.')" 
+                            class="text-left p-3 bg-slate-50 dark:bg-slate-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors text-sm">
+                        <span class="text-slate-700 dark:text-slate-300">🚨 Acil bakım çalışması devam ediyor...</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Kaydet Butonu -->
+            <div class="pt-4 border-t border-slate-200 dark:border-slate-700">
+                <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span>Değişiklikleri Kaydet</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Önizleme Kartı -->
+    <div class="mt-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center space-x-2">
+            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            </svg>
+            <span>Bakım Modu Önizlemesi</span>
+        </h3>
+        <p class="text-sm text-slate-600 dark:text-slate-400 mb-3">
+            Bakım modu aktif olduğunda kullanıcılar şu sayfayı görecek:
+        </p>
+        <div class="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-300 dark:border-slate-600">
+            <a href="/" target="_blank" class="inline-flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold">
+                <span>Bakım Modu Sayfasını Görüntüle</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+function setMessage(text) {
+    document.querySelector('textarea[name="maintenance_message"]').value = text;
+}
+</script>
+{% endblock %}
